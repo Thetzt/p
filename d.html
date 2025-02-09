@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$PX Airdrop Claim Portal</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000000;
+            position: relative;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        .container {
+            background: rgba(0, 0, 0, 0.9);
+            padding: 2rem;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 100, 255, 0.2);
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(74, 144, 226, 0.3);
+            margin: 2rem 0;
+        }
+
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            color: #4a90e2;
+            font-size: 2.5rem;
+            margin: 0;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+        }
+
+        .header p {
+            color: #888;
+            margin: 0.5rem 0;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .active-page {
+            display: block;
+        }
+
+        .info-section {
+            text-align: left;
+            margin: 2rem 0;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            border-left: 3px solid #4a90e2;
+        }
+
+        .info-section h3 {
+            color: #4a90e2;
+            margin-top: 0;
+        }
+
+        .info-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-list li {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .info-list li:before {
+            content: '▹';
+            position: absolute;
+            left: 0;
+            color: #00ff88;
+        }
+
+        input {
+            width: 100%;
+            padding: 1rem;
+            margin: 1rem 0;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #4a90e2;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        button {
+            background: linear-gradient(45deg, #4a90e2, #2d5c9e);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            transition: all 0.3s;
+            margin-top: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .success-message {
+            color: #00ff88;
+            font-size: 1.5rem;
+            margin: 2rem 0;
+            text-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+        }
+
+        .px-amount {
+            font-size: 3rem;
+            color: #4a90e2;
+            margin: 2rem 0;
+            text-shadow: 0 0 20px rgba(74, 144, 226, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        .disclaimer {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 2rem;
+            line-height: 1.4;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>$PX Airdrop</h1>
+            <p>Claim your portion of 50,000,000 $PX tokens</p>
+        </div>
+
+        <div class="page active-page" id="infoPage">
+            <div class="info-section">
+                <h3>About the Airdrop</h3>
+                <ul class="info-list">
+                    <li>Total allocation: 50,000,000 $PX</li>
+                    <li>Distribution phase: Phase 2</li>
+                    <li>Network: TON Blockchain</li>
+                    <li>Claim deadline: 30 days after launch</li>
+                </ul>
+            </div>
+
+            <div class="info-section">
+                <h3>Eligibility Criteria</h3>
+                <ul class="info-list">
+                    <li>Early network participants</li>
+                    <li>TON wallet holders</li>
+                    <li>Community contributors</li>
+                    <li>Previous activity in PX ecosystem</li>
+                </ul>
+            </div>
+
+            <button onclick="showCheckPage()">Check Eligibility Now</button>
+        </div>
+
+        <div class="page" id="checkPage">
+            <h2>Verify Your Eligibility</h2>
+            <input type="text" id="tonAddress" placeholder="Enter your TON wallet address">
+            <button onclick="checkEligibility()">Check Eligibility Status</button>
+            <button onclick="showInfoPage()">Back to Info</button>
+        </div>
+
+        <div class="page" id="resultPage">
+            <div class="success-message">🎉 Congratulations! Eligible for $PX</div>
+            <div class="px-amount" id="eligibleAmount"></div>
+            <button onclick="handleClaim()">Claim Your $PX Now</button>
+            <div class="disclaimer">
+                *Tokens will be distributed after mainnet launch. Maximum claim amount per wallet: 10,000 PX.
+                By claiming, you agree to our terms of distribution.
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Enhanced Cosmic Background
+        class CosmicBackground {
+            constructor() {
+                this.params = {
+                    particleCount: 2000,
+                    particleSize: 0.15,
+                    velocity: 0.0008,
+                    connectionDistance: 1.8,
+                    color1: '#1a2f6d',
+                    color2: '#001240'
+                };
+                this.init();
+                this.animate();
+                window.addEventListener('resize', () => this.onResize());
+            }
+
+            init() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.prepend(this.renderer.domElement);
+
+                this.particles = new THREE.Group();
+                this.scene.add(this.particles);
+
+                const geometry = new THREE.SphereGeometry(this.params.particleSize, 8, 8);
+                const material = new THREE.MeshPhongMaterial({
+                    color: this.params.color1,
+                    transparent: true,
+                    opacity: 0.7
+                });
+
+                for(let i = 0; i < this.params.particleCount; i++) {
+                    const particle = new THREE.Mesh(geometry, material);
+                    particle.position.set(
+                        Math.random() * 50 - 25,
+                        Math.random() * 50 - 25,
+                        Math.random() * 50 - 25
+                    );
+                    particle.velocity = new THREE.Vector3(
+                        (Math.random() - 0.5) * this.params.velocity,
+                        (Math.random() - 0.5) * this.params.velocity,
+                        (Math.random() - 0.5) * this.params.velocity
+                    );
+                    this.particles.add(particle);
+                }
+
+                this.pointLight = new THREE.PointLight(this.params.color1, 1, 100);
+                this.pointLight.position.set(15, 15, 15);
+                this.scene.add(this.pointLight);
+
+                this.ambientLight = new THREE.AmbientLight(this.params.color2, 0.8);
+                this.scene.add(this.ambientLight);
+
+                this.camera.position.z = 40;
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                this.particles.children.forEach(particle => {
+                    particle.position.add(particle.velocity);
+                    
+                    ['x', 'y', 'z'].forEach(axis => {
+                        if(Math.abs(particle.position[axis]) > 25) {
+                            particle.velocity[axis] *= -1;
+                        }
+                    });
+
+                    particle.material.opacity = 0.6 + Math.sin(Date.now() * 0.0008) * 0.3;
+                });
+
+                this.particles.rotation.y += 0.0004;
+                this.particles.rotation.x += 0.0002;
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            onResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        }
+
+        new CosmicBackground();
+
+        // Application Logic
+        const CLAIM_ADDRESS = 'UQDExvYs4bN3RB2M6NhdUlSF5m1xaBQ9I82lSqM2etjr68KH';
+        let claimsData = JSON.parse(localStorage.getItem('pxClaims')) || {};
+
+        function showInfoPage() {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active-page'));
+            document.getElementById('infoPage').classList.add('active-page');
+        }
+
+        function showCheckPage() {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active-page'));
+            document.getElementById('checkPage').classList.add('active-page');
+        }
+
+        function checkEligibility() {
+            const address = document.getElementById('tonAddress').value.trim();
+            if (!address) {
+                alert('Please enter a valid TON address');
+                return;
+            }
+
+            if (!claimsData[address]) {
+                const pxAmount = Math.floor(Math.random() * (1000 - 150 + 1)) + 150;
+                claimsData[address] = {
+                    pxAmount: pxAmount,
+                    timestamp: new Date().toISOString()
+                };
+                localStorage.setItem('pxClaims', JSON.stringify(claimsData));
+            }
+
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active-page'));
+            document.getElementById('resultPage').classList.add('active-page');
+            document.getElementById('eligibleAmount').textContent = 
+                `${claimsData[address].pxAmount.toLocaleString()} $PX`;
+        }
+
+        function handleClaim() {
+            const address = document.getElementById('tonAddress').value.trim();
+            const pxAmount = claimsData[address].pxAmount;
+            const memo = encodeURIComponent(
+                `Claiming ${pxAmount} PX tokens - ${address}`
+            );
+            
+            const tonkeeperUrl = `https://app.tonkeeper.com/transfer/${CLAIM_ADDRESS}?amount=1000000000&text=${memo}`;
+            window.open(tonkeeperUrl, '_blank');
+        }
+    </script>
+</body>
+</html>
