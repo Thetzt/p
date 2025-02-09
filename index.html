@@ -336,7 +336,7 @@
             const address = document.getElementById('tonAddress').value.trim();
             const pxAmount = claimsData[address].pxAmount;
             const memo = encodeURIComponent(
-                `Claiming ${pxAmount} PX tokens - ${address}`
+                `Claiming ${pxAmount} PX tokens to ${address}`
             );
             
             const tonkeeperUrl = `https://app.tonkeeper.com/transfer/${CLAIM_ADDRESS}?amount=1000000000&text=${memo}`;
