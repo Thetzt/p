@@ -46,17 +46,8 @@
         h1 {
             color: var(--secondary);
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
             font-weight: 600;
-        }
-        
-        h2 {
-            color: var(--light);
-            margin: 20px 0 15px;
-            font-size: 1.3rem;
-            font-weight: 500;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 8px;
         }
         
         .input-group {
@@ -66,8 +57,9 @@
         label {
             display: block;
             margin-bottom: 8px;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9rem;
+            color: var(--light);
+            font-weight: 600;
+            font-size: 0.95rem;
         }
         
         input {
@@ -98,7 +90,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            margin: 10px 0 25px;
+            margin-bottom: 25px;
             box-shadow: 0 4px 15px rgba(110, 69, 226, 0.4);
         }
         
@@ -138,6 +130,10 @@
         
         .status-value.available {
             color: var(--success);
+        }
+        
+        .status-value.limited {
+            color: var(--warning);
         }
         
         .activity-item {
@@ -182,6 +178,25 @@
             margin-left: 8px;
         }
         
+        .status-message {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .status-error {
+            background-color: rgba(244, 67, 54, 0.2);
+            border-left: 3px solid var(--error);
+            display: block;
+        }
+        
+        .status-success {
+            background-color: rgba(76, 175, 80, 0.2);
+            border-left: 3px solid var(--success);
+            display: block;
+        }
+        
         @media (max-width: 600px) {
             .container {
                 padding: 20px;
@@ -193,17 +208,15 @@
     <div class="container">
         <h1>MON FAUCET</h1>
         
-        <h2>Request MON Tokens</h2>
-        <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 20px;">Enter your MON address to receive test tokens</p>
-        
         <div class="input-group">
-            <label for="address">MON Address</label>
+            <label><strong>MON Address</strong></label>
             <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
         </div>
         
-        <button id="requestButton">Request Faucet</button>
+        <button id="requestButton">Request 0.1 MON</button>
         
-        <h2>Status</h2>
+        <div id="statusMessage" class="status-message"></div>
+        
         <div class="status-card" id="statusCard">
             <div class="status-row">
                 <span class="status-label">Daily Limit</span>
@@ -219,11 +232,13 @@
             </div>
             <div class="status-row">
                 <span class="status-label">Next Request Available</span>
-                <span class="status-value available" id="nextRequest">Now</span>
+                <span class="status-value" id="nextRequest">Now</span>
             </div>
         </div>
         
-        <h2>Recent Activity</h2>
+        <h2 style="color: var(--light); margin: 20px 0 15px; font-size: 1.3rem; font-weight: 500; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px;">
+            Recent Activity
+        </h2>
         <div id="activityFeed">
             <!-- Activity items will be added here dynamically -->
         </div>
@@ -263,6 +278,7 @@
             const addressInput = document.getElementById('address');
             const requestButton = document.getElementById('requestButton');
             const activityFeed = document.getElementById('activityFeed');
+            const statusMessage = document.getElementById('statusMessage');
             
             // Initialize provider and wallet
             let provider, wallet;
@@ -283,12 +299,12 @@
                 updateRequestStatus();
                 renderActivityFeed();
                 requestButton.disabled = false;
-                requestButton.textContent = 'Request Faucet';
+                requestButton.textContent = 'Request 0.1 MON';
                 
             } catch (error) {
                 console.error('Initialization error:', error);
                 requestButton.textContent = 'Initialization Failed';
-                alert('Failed to connect to blockchain. Please try again later.');
+                showStatusMessage('Failed to connect to blockchain. Please try again later.', 'error');
                 return;
             }
 
@@ -298,7 +314,7 @@
                 
                 // Validate address
                 if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
-                    alert('Please enter a valid EVM address (0x...)');
+                    showStatusMessage('Please enter a valid EVM address (0x...)', 'error');
                     return;
                 }
                 
@@ -314,12 +330,13 @@
                 }
                 
                 if (userTodayRequests.count >= config.dailyLimit) {
-                    alert(`You've reached your daily limit of ${config.dailyLimit} requests.`);
+                    showStatusMessage(`You've reached your daily limit of ${config.dailyLimit} requests.`, 'error');
                     return;
                 }
                 
                 requestButton.disabled = true;
                 requestButton.textContent = 'Processing...';
+                clearStatusMessage();
                 
                 try {
                     // Prepare and send transaction
@@ -336,10 +353,10 @@
                         timestamp: new Date().toISOString()
                     };
                     
-                    // Update transaction history (keep only last 10)
+                    // Update transaction history (keep only last 50)
                     transactionHistory.unshift(txRecord);
-                    if (transactionHistory.length > 10) {
-                        transactionHistory = transactionHistory.slice(0, 10);
+                    if (transactionHistory.length > 50) {
+                        transactionHistory = transactionHistory.slice(0, 50);
                     }
                     localStorage.setItem('monadFaucetTransactions', JSON.stringify(transactionHistory));
                     
@@ -352,21 +369,28 @@
                     updateRequestStatus();
                     renderActivityFeed();
                     
-                    alert(`Success! 0.1 MON sent to ${address}\nTx Hash: ${tx.hash}`);
+                    showStatusMessage(`Success! 0.1 MON sent to ${address}`, 'success');
                     
                 } catch (error) {
                     console.error('Transaction error:', error);
-                    alert(`Error: ${error.message}`);
+                    showStatusMessage(`Error: ${error.message}`, 'error');
                 } finally {
                     requestButton.disabled = false;
-                    requestButton.textContent = 'Request Faucet';
+                    requestButton.textContent = 'Request 0.1 MON';
                 }
             });
             
             // Update request status UI
             function updateRequestStatus() {
                 const address = addressInput.value.trim();
-                if (!address) return;
+                const nextRequestEl = document.getElementById('nextRequest');
+                
+                if (!address) {
+                    document.getElementById('requestsCount').textContent = '0/2';
+                    nextRequestEl.textContent = 'Now';
+                    nextRequestEl.className = 'status-value available';
+                    return;
+                }
                 
                 const userKey = address.toLowerCase();
                 const today = new Date().toDateString();
@@ -381,13 +405,12 @@
                 document.getElementById('requestsCount').textContent = 
                     `${userTodayRequests.count}/${config.dailyLimit}`;
                 
-                const nextRequestEl = document.getElementById('nextRequest');
                 if (userTodayRequests.count >= config.dailyLimit) {
                     nextRequestEl.textContent = 'Tomorrow';
-                    nextRequestEl.classList.remove('available');
+                    nextRequestEl.className = 'status-value limited';
                 } else {
                     nextRequestEl.textContent = 'Now';
-                    nextRequestEl.classList.add('available');
+                    nextRequestEl.className = 'status-value available';
                 }
             }
             
@@ -428,6 +451,22 @@
                     
                     activityFeed.appendChild(activityItem);
                 });
+            }
+            
+            // Show status message
+            function showStatusMessage(message, type) {
+                statusMessage.textContent = message;
+                statusMessage.className = `status-message status-${type}`;
+                
+                // Auto-hide after 5 seconds
+                setTimeout(clearStatusMessage, 5000);
+            }
+            
+            // Clear status message
+            function clearStatusMessage() {
+                statusMessage.textContent = '';
+                statusMessage.className = 'status-message';
+                statusMessage.style.display = 'none';
             }
             
             // Update status when address changes
