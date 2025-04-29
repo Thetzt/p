@@ -3,262 +3,292 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MON Faucet - Monad Testnet</title>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <title>Monad Testnet Faucet</title>
     <style>
-        /* [Previous CSS styles remain exactly the same] */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1a1a2e;
+            color: #e6e6e6;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background-color: #16213e;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #4cc9f0;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            width: 100px;
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #a1a1a1;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #4cc9f0;
+            border-radius: 5px;
+            background-color: #0f3460;
+            color: #e6e6e6;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background-color: #4cc9f0;
+            color: #16213e;
+            border: none;
+            border-radius: 5px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        
+        button:hover {
+            background-color: #3aa8d8;
+        }
+        
+        button:disabled {
+            background-color: #4a5568;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .success {
+            background-color: #2d3748;
+            color: #48bb78;
+            display: block;
+        }
+        
+        .error {
+            background-color: #2d3748;
+            color: #f56565;
+            display: block;
+        }
+        
+        .network-info {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #a1a1a1;
+            text-align: left;
+            background-color: #0f3460;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        .network-info h3 {
+            color: #4cc9f0;
+            margin-top: 0;
+        }
+        
+        .faucet-balance {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #0f3460;
+            border-radius: 5px;
+        }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h1>MON FAUCET</h1>
-    
-    <div class="section">
-        <h2>Request MON Tokens</h2>
-        <p>Enter your EVM address to receive test tokens on Monad Testnet</p>
+    <div class="container">
+        <h1>Monad Testnet Faucet</h1>
         
-        <h3>EVM Address</h3>
         <div class="input-group">
-            <input type="text" id="monAddress" class="address-input" placeholder="0x...">
-        </div>
-        <div id="errorMessage" class="error"></div>
-        <div id="successMessage" class="success"></div>
-        <button id="requestButton" class="button">Request Faucet</button>
-    </div>
-    
-    <div class="divider"></div>
-    
-    <div class="section">
-        <h2>Request Faucet</h2>
-        
-        <div class="status-item">
-            <span class="status-label">Daily Limit</span>
-            <span class="status-value">3 requests</span>
+            <label for="address">Your Monad Testnet Address (0x...)</label>
+            <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
         </div>
         
-        <div class="status-item">
-            <span class="status-label">Your Requests Today</span>
-            <span class="status-value"><span id="requestsCount" class="highlight">0</span>/3</span>
+        <button id="requestButton">Request 0.1 MON</button>
+        
+        <div id="statusMessage" class="status"></div>
+        
+        <div class="faucet-balance" id="faucetBalance">
+            Loading faucet balance...
         </div>
         
-        <div class="status-item">
-            <span class="status-label">Tokens per Request</span>
-            <span class="status-value">0.1 MON</span> <!-- Changed to 0.1 MON -->
-        </div>
-        
-        <div class="status-item">
-            <span class="status-label">Next Request Available</span>
-            <span id="nextRequest" class="status-value highlight">Now</span>
+        <div class="network-info">
+            <h3>Monad Testnet Information</h3>
+            <p><strong>RPC URL:</strong> https://testnet-rpc.monad.xyz</p>
+            <p><strong>Chain ID:</strong> 10143</p>
+            <p><strong>Currency:</strong> MON</p>
+            <p><strong>Block Explorer:</strong> https://testnet-explorer.monad.xyz</p>
         </div>
     </div>
-    
-    <div class="divider"></div>
-    
-    <div class="section">
-        <h2>Recent Activity</h2>
-        <div id="activityLog">
-            <!-- Activity items will be added here dynamically -->
-        </div>
-    </div>
-    
-    <footer>
-        © 2025 Monad Testnet Faucet. All rights reserved.<br>
-        Network: <span class="highlight">Monad Testnet (Chain ID: 10143)</span>
-    </footer>
 
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="application/javascript"></script>
     <script>
-        // Configuration
-        const config = {
-            rpcUrl: "https://testnet-rpc.monad.xyz",
-            chainId: 10143,
-            faucetPrivateKey: "ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb",
-            tokensPerRequest: ethers.utils.parseEther("0.1"), // Changed to 0.1 MON
-            dailyLimit: 3,
-            cooldownPeriod: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
-        };
-
-        // DOM elements
-        const monAddressInput = document.getElementById('monAddress');
-        const requestButton = document.getElementById('requestButton');
-        const errorMessage = document.getElementById('errorMessage');
-        const successMessage = document.getElementById('successMessage');
-        const requestsCount = document.getElementById('requestsCount');
-        const nextRequest = document.getElementById('nextRequest');
-        const activityLog = document.getElementById('activityLog');
-
-        // Initialize provider and signer
-        const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
-            chainId: config.chainId,
-            name: 'monad-testnet'
-        });
-        
-        // Create wallet from private key
-        const faucetWallet = new ethers.Wallet(config.faucetPrivateKey, provider);
-        const faucetAddress = faucetWallet.address;
-
-        // Format address for display
-        function formatAddress(address) {
-            return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-        }
-
-        // Add activity to log
-        function addActivity(amount, address, txHash, timestamp) {
-            const date = new Date(timestamp);
-            const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-            const dateString = date.toLocaleDateString('en-US', options);
+        document.addEventListener('DOMContentLoaded', function() {
+            const addressInput = document.getElementById('address');
+            const requestButton = document.getElementById('requestButton');
+            const statusMessage = document.getElementById('statusMessage');
+            const faucetBalanceElement = document.getElementById('faucetBalance');
             
-            const activityItem = document.createElement('div');
-            activityItem.className = 'activity-item';
-            activityItem.innerHTML = `
-                <div class="activity-title">Tokens Received</div>
-                <div class="activity-detail">${dateString}</div>
-                <div class="activity-detail">${ethers.utils.formatEther(amount)} MON sent to ${formatAddress(address)}</div>
-                <div class="activity-detail">Tx: ${formatAddress(txHash)}</div>
-            `;
-            
-            activityLog.insertBefore(activityItem, activityLog.firstChild);
-        }
-
-        // Get user requests from localStorage
-        function getUserRequests(address) {
-            const requests = JSON.parse(localStorage.getItem('faucetRequests') || {});
-            return requests[address.toLowerCase()] || {
-                count: 0,
-                lastRequest: 0
-            };
-        }
-
-        // Update user request status
-        function updateRequestStatus(address) {
-            if (!address) return;
-            
-            const userRequests = getUserRequests(address);
-            requestsCount.textContent = userRequests.count;
-            
-            const now = Date.now();
-            const canRequest = userRequests.count < config.dailyLimit && 
-                             (now - userRequests.lastRequest) > config.cooldownPeriod;
-            
-            if (canRequest) {
-                nextRequest.textContent = "Now";
-            } else {
-                if (userRequests.count >= config.dailyLimit) {
-                    nextRequest.textContent = "Tomorrow (limit reached)";
-                } else {
-                    const nextAvailable = new Date(userRequests.lastRequest + config.cooldownPeriod);
-                    nextRequest.textContent = nextAvailable.toLocaleTimeString();
-                }
-            }
-        }
-
-        // Save user request to localStorage
-        function saveUserRequest(address) {
-            const requests = JSON.parse(localStorage.getItem('faucetRequests') || {});
-            const userRequests = getUserRequests(address);
-            
-            requests[address.toLowerCase()] = {
-                count: userRequests.count + 1,
-                lastRequest: Date.now()
+            // Configuration
+            const config = {
+                privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
+                rpcUrl: 'https://testnet-rpc.monad.xyz',
+                chainId: 10143,
+                faucetAmount: '0.1' // in MON
             };
             
-            localStorage.setItem('faucetRequests', JSON.stringify(requests));
-            updateRequestStatus(address);
-        }
-
-        // Check if user can request tokens
-        function canRequestTokens(address) {
-            if (!address) return false;
+            // Initialize provider and wallet
+            const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
+                chainId: config.chainId,
+                name: 'monad-testnet'
+            });
             
-            const userRequests = getUserRequests(address);
-            const now = Date.now();
+            const wallet = new ethers.Wallet(config.privateKey, provider);
             
-            // Reset count if cooldown period has passed
-            if ((now - userRequests.lastRequest) > config.cooldownPeriod && userRequests.lastRequest !== 0) {
-                const requests = JSON.parse(localStorage.getItem('faucetRequests') || {});
-                requests[address.toLowerCase()] = {
-                    count: 0,
-                    lastRequest: 0
-                };
-                localStorage.setItem('faucetRequests', JSON.stringify(requests));
-                return true;
+            // Rate limiting using localStorage
+            const MAX_REQUESTS_PER_DAY = 3;
+            const DAY_IN_MS = 24 * 60 * 60 * 1000;
+            
+            // Update faucet balance display
+            async function updateFaucetBalance() {
+                try {
+                    const balance = await provider.getBalance(wallet.address);
+                    faucetBalanceElement.innerHTML = `
+                        <strong>Faucet Address:</strong> ${wallet.address}<br>
+                        <strong>Faucet Balance:</strong> ${ethers.utils.formatEther(balance)} MON
+                    `;
+                } catch (error) {
+                    faucetBalanceElement.textContent = 'Error loading faucet balance';
+                    console.error('Balance error:', error);
+                }
             }
             
-            return userRequests.count < config.dailyLimit;
-        }
-
-        // Request tokens from faucet
-        async function requestTokens() {
-            const address = monAddressInput.value.trim();
-            
-            // Validate address
-            if (!ethers.utils.isAddress(address)) {
-                errorMessage.textContent = "Please enter a valid EVM address";
-                return;
-            }
-            
-            // Check if user can request tokens
-            if (!canRequestTokens(address)) {
-                errorMessage.textContent = "You've reached your daily limit. Please try again later.";
-                updateRequestStatus(address);
-                return;
-            }
-            
-            errorMessage.textContent = "";
-            successMessage.textContent = "";
-            requestButton.disabled = true;
-            requestButton.innerHTML = '<span class="loading"></span> Processing...';
-            
-            try {
-                // Get faucet balance first
-                const faucetBalance = await provider.getBalance(faucetAddress);
-                if (faucetBalance.lt(config.tokensPerRequest)) {
-                    throw new Error("Faucet balance is too low. Please try again later.");
+            // Check if address can request funds
+            function canRequestFunds(address) {
+                if (!address) return false;
+                
+                const now = Date.now();
+                const requesterKey = `monad_faucet_${address.toLowerCase()}`;
+                const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":0}');
+                
+                // Reset counter if it's been more than a day
+                if (now - requestData.firstRequest > DAY_IN_MS) {
+                    requestData.count = 0;
+                    requestData.firstRequest = now;
+                    localStorage.setItem(requesterKey, JSON.stringify(requestData));
                 }
                 
-                // Send transaction
-                const tx = await faucetWallet.sendTransaction({
-                    to: address,
-                    value: config.tokensPerRequest
-                });
-                
-                // Show immediate feedback while waiting for confirmation
-                successMessage.textContent = `Transaction submitted: ${formatAddress(tx.hash)}`;
-                
-                // Wait for transaction to be mined
-                const receipt = await tx.wait();
-                
-                // Save request and update UI
-                saveUserRequest(address);
-                successMessage.textContent = `Success! 0.1 MON tokens sent to ${formatAddress(address)}`;
-                addActivity(config.tokensPerRequest, address, tx.hash, Date.now());
-                
-            } catch (error) {
-                console.error("Error sending tokens:", error);
-                errorMessage.textContent = error.message || "Failed to send tokens. Please try again.";
-            } finally {
-                requestButton.disabled = false;
-                requestButton.textContent = "Request Faucet";
+                return requestData.count < MAX_REQUESTS_PER_DAY;
             }
-        }
-
-        // Event listeners
-        requestButton.addEventListener('click', requestTokens);
-        
-        monAddressInput.addEventListener('input', () => {
-            errorMessage.textContent = "";
-            successMessage.textContent = "";
             
-            const address = monAddressInput.value.trim();
-            if (address && ethers.utils.isAddress(address)) {
-                updateRequestStatus(address);
-            } else {
-                requestsCount.textContent = "0";
-                nextRequest.textContent = "Now";
+            // Track request in localStorage
+            function trackRequest(address) {
+                const now = Date.now();
+                const requesterKey = `monad_faucet_${address.toLowerCase()}`;
+                const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":now}');
+                
+                requestData.count++;
+                if (requestData.firstRequest === 0) {
+                    requestData.firstRequest = now;
+                }
+                
+                localStorage.setItem(requesterKey, JSON.stringify(requestData));
             }
+            
+            // Show status message
+            function showStatus(message, type) {
+                statusMessage.textContent = message;
+                statusMessage.className = 'status ' + type;
+            }
+            
+            // Initialize
+            updateFaucetBalance();
+            
+            // Request faucet handler
+            requestButton.addEventListener('click', async function() {
+                const address = addressInput.value.trim();
+                
+                // Validate address
+                if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
+                    showStatus('Please enter a valid EVM address (0x...)', 'error');
+                    return;
+                }
+                
+                // Check rate limit
+                if (!canRequestFunds(address)) {
+                    const requesterKey = `monad_faucet_${address.toLowerCase()}`;
+                    const requestData = JSON.parse(localStorage.getItem(requesterKey));
+                    const nextRequestTime = new Date(requestData.firstRequest + DAY_IN_MS);
+                    
+                    showStatus(`You've reached the daily limit (${MAX_REQUESTS_PER_DAY} requests). Try again after ${nextRequestTime.toLocaleString()}`, 'error');
+                    return;
+                }
+                
+                requestButton.disabled = true;
+                showStatus('Processing your request...', 'success');
+                
+                try {
+                    // Prepare transaction
+                    const tx = {
+                        to: address,
+                        value: ethers.utils.parseEther(config.faucetAmount)
+                    };
+                    
+                    // Send transaction
+                    const txResponse = await wallet.sendTransaction(tx);
+                    showStatus(`Transaction sent! Waiting for confirmation... (Hash: ${txResponse.hash})`, 'success');
+                    
+                    // Wait for confirmation
+                    const receipt = await txResponse.wait();
+                    trackRequest(address);
+                    
+                    showStatus(`Success! 0.1 MON sent to ${address}. Tx Hash: ${txResponse.hash}`, 'success');
+                    
+                    // Update balance after sending
+                    await updateFaucetBalance();
+                } catch (error) {
+                    console.error('Transaction error:', error);
+                    
+                    if (error.message.includes('insufficient funds')) {
+                        showStatus('Error: Faucet has insufficient funds', 'error');
+                    } else if (error.message.includes('nonce')) {
+                        showStatus('Error: Transaction nonce issue. Please try again.', 'error');
+                    } else {
+                        showStatus(`Error: ${error.message}`, 'error');
+                    }
+                } finally {
+                    requestButton.disabled = false;
+                }
+            });
         });
-
-        // Initialize with faucet address display
-        console.log("Faucet Address:", faucetAddress);
     </script>
 </body>
 </html>
