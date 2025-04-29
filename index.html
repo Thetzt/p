@@ -32,6 +32,37 @@
             margin-bottom: 20px;
         }
         
+        .loader {
+            border: 4px solid #0f3460;
+            border-top: 4px solid #4cc9f0;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            margin-top: 10px;
+        }
+        
+        .error-message {
+            color: #f56565;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #2d3748;
+            border-radius: 5px;
+        }
+        
+        .app-content {
+            display: none;
+        }
+        
         .input-group {
             margin-bottom: 20px;
             text-align: left;
@@ -118,40 +149,6 @@
             border-radius: 5px;
             text-align: left;
         }
-        
-        .debug-info {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #0f3460;
-            border-radius: 5px;
-            text-align: left;
-            font-family: monospace;
-            font-size: 12px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .debug-title {
-            color: #4cc9f0;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .loader {
-            border: 4px solid #0f3460;
-            border-top: 4px solid #4cc9f0;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-            display: none;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body>
@@ -159,8 +156,11 @@
         <h1>Monad Testnet Faucet</h1>
         
         <div id="loader" class="loader"></div>
+        <div id="loadingText" class="loading-text">Loading application...</div>
         
-        <div id="appContent" style="display: none;">
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+        
+        <div id="appContent" class="app-content">
             <div class="input-group">
                 <label for="address">Your Monad Testnet Address (0x...)</label>
                 <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
@@ -181,232 +181,133 @@
                 <p><strong>Currency:</strong> MON</p>
                 <p><strong>Block Explorer:</strong> https://testnet-explorer.monad.xyz</p>
             </div>
-            
-            <div class="debug-info">
-                <div class="debug-title">Debug Information:</div>
-                <div id="debugConsole"></div>
-            </div>
         </div>
     </div>
 
-    <!-- Load ethers.js first -->
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="application/javascript"></script>
+    <!-- First try CDN -->
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
     <script>
-        // First check if ethers is loaded
-        function checkEthersLoaded() {
-            const loader = document.getElementById('loader');
-            const appContent = document.getElementById('appContent');
-            
+        // Local fallback if CDN fails
+        if (typeof ethers === 'undefined') {
+            document.getElementById('loadingText').textContent = 'Loading local version...';
+            document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"><\/script>');
+        }
+    </script>
+    <script>
+        // Show error message
+        function showError(message) {
+            console.error(message);
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('loadingText').style.display = 'none';
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        // Wait for the DOM and ethers.js to be ready
+        function initialize() {
             if (typeof ethers === 'undefined') {
-                debugLog('Ethers.js not loaded yet, waiting...');
-                setTimeout(checkEthersLoaded, 100);
+                showError("Failed to load ethers.js library. Please check your internet connection.");
                 return;
             }
-            
-            // Ethers is loaded, proceed with app initialization
-            loader.style.display = 'none';
-            appContent.style.display = 'block';
-            initializeApp();
-        }
-        
-        // Debug logging
-        function debugLog(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            const debugConsole = document.getElementById('debugConsole');
-            if (debugConsole) {
-                debugConsole.innerHTML += `[${timestamp}] ${message}<br>`;
-                debugConsole.scrollTop = debugConsole.scrollHeight;
-            }
-            console.log(message);
-        }
-        
-        // Initialize the application after ethers is loaded
-        function initializeApp() {
-            debugLog('Ethers.js successfully loaded, version: ' + ethers.version);
-            
-            const addressInput = document.getElementById('address');
-            const requestButton = document.getElementById('requestButton');
-            const statusMessage = document.getElementById('statusMessage');
-            const faucetBalanceElement = document.getElementById('faucetBalance');
-            
-            // Configuration
-            const config = {
-                privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
-                rpcUrl: 'https://testnet-rpc.monad.xyz',
-                chainId: 10143,
-                faucetAmount: '0.1' // in MON
-            };
-            
-            // Initialize provider and wallet
-            let provider, wallet;
+
+            console.log("Ethers.js loaded successfully, version:", ethers.version);
             
             try {
-                debugLog('Initializing provider...');
-                provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
+                // Hide loader and show app content
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('loadingText').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+                
+                // Configuration
+                const config = {
+                    privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
+                    rpcUrl: 'https://testnet-rpc.monad.xyz',
+                    chainId: 10143,
+                    faucetAmount: '0.1'
+                };
+                
+                // Initialize provider and wallet
+                const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
                     chainId: config.chainId,
                     name: 'monad-testnet'
                 });
                 
-                debugLog('Initializing wallet...');
-                wallet = new ethers.Wallet(config.privateKey, provider);
-                debugLog(`Wallet address: ${wallet.address}`);
-                
-                // Now that we have ethers, show the UI
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('appContent').style.display = 'block';
-                
-                // Rate limiting using localStorage
-                const MAX_REQUESTS_PER_DAY = 3;
-                const DAY_IN_MS = 24 * 60 * 60 * 1000;
+                const wallet = new ethers.Wallet(config.privateKey, provider);
+                console.log("Wallet initialized with address:", wallet.address);
                 
                 // Update faucet balance display
                 async function updateFaucetBalance() {
                     try {
-                        debugLog('Fetching faucet balance...');
                         const balance = await provider.getBalance(wallet.address);
-                        faucetBalanceElement.innerHTML = `
+                        document.getElementById('faucetBalance').innerHTML = `
                             <strong>Faucet Address:</strong> ${wallet.address}<br>
                             <strong>Faucet Balance:</strong> ${ethers.utils.formatEther(balance)} MON
                         `;
-                        debugLog(`Faucet balance updated: ${ethers.utils.formatEther(balance)} MON`);
                     } catch (error) {
-                        const msg = `Error loading faucet balance: ${error.message}`;
-                        faucetBalanceElement.textContent = msg;
-                        debugLog(msg);
+                        document.getElementById('faucetBalance').textContent = 
+                            'Error loading faucet balance';
+                        console.error("Balance error:", error);
                     }
                 }
                 
-                // Check if address can request funds
-                function canRequestFunds(address) {
-                    if (!address) return false;
-                    
-                    const now = Date.now();
-                    const requesterKey = `monad_faucet_${address.toLowerCase()}`;
-                    const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":0}');
-                    
-                    debugLog(`Checking rate limit for ${address}: ${requestData.count}/${MAX_REQUESTS_PER_DAY} requests`);
-                    
-                    // Reset counter if it's been more than a day
-                    if (now - requestData.firstRequest > DAY_IN_MS) {
-                        requestData.count = 0;
-                        requestData.firstRequest = now;
-                        localStorage.setItem(requesterKey, JSON.stringify(requestData));
-                        debugLog(`Rate limit reset for ${address}`);
-                    }
-                    
-                    return requestData.count < MAX_REQUESTS_PER_DAY;
-                }
-                
-                // Track request in localStorage
-                function trackRequest(address) {
-                    const now = Date.now();
-                    const requesterKey = `monad_faucet_${address.toLowerCase()}`;
-                    const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":now}');
-                    
-                    requestData.count++;
-                    if (requestData.firstRequest === 0) {
-                        requestData.firstRequest = now;
-                    }
-                    
-                    localStorage.setItem(requesterKey, JSON.stringify(requestData));
-                    debugLog(`Request tracked for ${address}. Count: ${requestData.count}`);
-                }
-                
-                // Show status message
-                function showStatus(message, type) {
-                    statusMessage.textContent = message;
-                    statusMessage.className = 'status ' + type;
-                    debugLog(`Status: ${type} - ${message}`);
-                }
-                
-                // Initialize
+                // Initialize faucet balance
                 updateFaucetBalance();
                 
-                // Request faucet handler
-                requestButton.addEventListener('click', async function() {
-                    const address = addressInput.value.trim();
-                    debugLog(`Request initiated for address: ${address}`);
+                // Set up the request button
+                document.getElementById('requestButton').addEventListener('click', async function() {
+                    const address = document.getElementById('address').value.trim();
+                    const button = document.getElementById('requestButton');
+                    const status = document.getElementById('statusMessage');
                     
                     // Validate address
                     if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
-                        const msg = 'Please enter a valid EVM address (0x...)';
-                        showStatus(msg, 'error');
-                        debugLog(msg);
+                        status.textContent = 'Please enter a valid EVM address (0x...)';
+                        status.className = 'status error';
+                        status.style.display = 'block';
                         return;
                     }
                     
-                    // Check rate limit
-                    if (!canRequestFunds(address)) {
-                        const requesterKey = `monad_faucet_${address.toLowerCase()}`;
-                        const requestData = JSON.parse(localStorage.getItem(requesterKey));
-                        const nextRequestTime = new Date(requestData.firstRequest + DAY_IN_MS);
-                        
-                        const msg = `You've reached the daily limit (${MAX_REQUESTS_PER_DAY} requests). Try again after ${nextRequestTime.toLocaleString()}`;
-                        showStatus(msg, 'error');
-                        debugLog(msg);
-                        return;
-                    }
-                    
-                    requestButton.disabled = true;
-                    showStatus('Processing your request...', 'success');
+                    button.disabled = true;
+                    status.textContent = 'Processing your request...';
+                    status.className = 'status success';
+                    status.style.display = 'block';
                     
                     try {
-                        debugLog('Preparing transaction...');
-                        // Prepare transaction
-                        const tx = {
+                        // Prepare and send transaction
+                        const tx = await wallet.sendTransaction({
                             to: address,
                             value: ethers.utils.parseEther(config.faucetAmount)
-                        };
+                        });
                         
-                        debugLog('Sending transaction...');
-                        // Send transaction
-                        const txResponse = await wallet.sendTransaction(tx);
-                        const msg1 = `Transaction sent! Waiting for confirmation... (Hash: ${txResponse.hash})`;
-                        showStatus(msg1, 'success');
-                        debugLog(msg1);
+                        status.textContent = `Transaction sent! Hash: ${tx.hash}`;
                         
-                        debugLog('Waiting for transaction confirmation...');
                         // Wait for confirmation
-                        const receipt = await txResponse.wait();
-                        trackRequest(address);
+                        const receipt = await tx.wait();
+                        status.textContent = `Success! 0.1 MON sent to ${address}. Tx Hash: ${tx.hash}`;
                         
-                        const msg2 = `Success! 0.1 MON sent to ${address}. Tx Hash: ${txResponse.hash}`;
-                        showStatus(msg2, 'success');
-                        debugLog(msg2);
-                        debugLog(`Transaction details: ${JSON.stringify(receipt, null, 2)}`);
-                        
-                        // Update balance after sending
+                        // Update balance
                         await updateFaucetBalance();
                     } catch (error) {
-                        console.error('Transaction error:', error);
-                        debugLog(`Transaction error: ${error.message}`);
-                        debugLog(`Full error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
-                        
-                        if (error.message.includes('insufficient funds')) {
-                            showStatus('Error: Faucet has insufficient funds', 'error');
-                        } else if (error.message.includes('nonce')) {
-                            showStatus('Error: Transaction nonce issue. Please try again.', 'error');
-                        } else if (error.message.includes('underpriced')) {
-                            showStatus('Error: Transaction underpriced. Please try again.', 'error');
-                        } else if (error.message.includes('network')) {
-                            showStatus('Error: Network connection issue. Please try again.', 'error');
-                        } else {
-                            showStatus(`Error: ${error.message}`, 'error');
-                        }
+                        console.error("Transaction error:", error);
+                        status.textContent = `Error: ${error.message}`;
+                        status.className = 'status error';
                     } finally {
-                        requestButton.disabled = false;
+                        button.disabled = false;
                     }
                 });
                 
             } catch (error) {
-                debugLog(`Initialization error: ${error.message}`);
-                showStatus(`Initialization error: ${error.message}`, 'error');
+                showError(`Application initialization failed: ${error.message}`);
+                console.error("Initialization error:", error);
             }
         }
-        
-        // Start checking for ethers.js
-        document.getElementById('loader').style.display = 'block';
-        checkEthersLoaded();
+
+        // Start initialization when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Give ethers.js some time to load
+            setTimeout(initialize, 100);
+        });
     </script>
 </body>
 </html>
