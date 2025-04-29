@@ -10,7 +10,7 @@
             background-color: #1a1a2e;
             color: #e6e6e6;
             margin: 0;
-            padding: 0;
+            padding: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -29,11 +29,6 @@
         
         h1 {
             color: #4cc9f0;
-            margin-bottom: 20px;
-        }
-        
-        .logo {
-            width: 100px;
             margin-bottom: 20px;
         }
         
@@ -70,6 +65,7 @@
             cursor: pointer;
             transition: background-color 0.3s;
             width: 100%;
+            margin-bottom: 20px;
         }
         
         button:hover {
@@ -120,6 +116,25 @@
             padding: 10px;
             background-color: #0f3460;
             border-radius: 5px;
+            text-align: left;
+        }
+        
+        .debug-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #0f3460;
+            border-radius: 5px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .debug-title {
+            color: #4cc9f0;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
     </style>
 </head>
@@ -147,6 +162,11 @@
             <p><strong>Currency:</strong> MON</p>
             <p><strong>Block Explorer:</strong> https://testnet-explorer.monad.xyz</p>
         </div>
+        
+        <div class="debug-info">
+            <div class="debug-title">Debug Information:</div>
+            <div id="debugConsole"></div>
+        </div>
     </div>
 
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="application/javascript"></script>
@@ -156,22 +176,41 @@
             const requestButton = document.getElementById('requestButton');
             const statusMessage = document.getElementById('statusMessage');
             const faucetBalanceElement = document.getElementById('faucetBalance');
+            const debugConsole = document.getElementById('debugConsole');
             
             // Configuration
             const config = {
                 privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
                 rpcUrl: 'https://testnet-rpc.monad.xyz',
-                chainId: 10143,
+                chainId: 10143, // Updated chain ID
                 faucetAmount: '0.1' // in MON
             };
             
-            // Initialize provider and wallet
-            const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
-                chainId: config.chainId,
-                name: 'monad-testnet'
-            });
+            // Debug logging
+            function debugLog(message) {
+                const timestamp = new Date().toLocaleTimeString();
+                debugConsole.innerHTML += `[${timestamp}] ${message}<br>`;
+                debugConsole.scrollTop = debugConsole.scrollHeight;
+                console.log(message);
+            }
             
-            const wallet = new ethers.Wallet(config.privateKey, provider);
+            // Initialize provider and wallet
+            let provider, wallet;
+            
+            try {
+                debugLog('Initializing provider...');
+                provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
+                    chainId: config.chainId,
+                    name: 'monad-testnet'
+                });
+                
+                debugLog('Initializing wallet...');
+                wallet = new ethers.Wallet(config.privateKey, provider);
+                debugLog(`Wallet address: ${wallet.address}`);
+            } catch (error) {
+                debugLog(`Initialization error: ${error.message}`);
+                showStatus(`Initialization error: ${error.message}`, 'error');
+            }
             
             // Rate limiting using localStorage
             const MAX_REQUESTS_PER_DAY = 3;
@@ -180,14 +219,17 @@
             // Update faucet balance display
             async function updateFaucetBalance() {
                 try {
+                    debugLog('Fetching faucet balance...');
                     const balance = await provider.getBalance(wallet.address);
                     faucetBalanceElement.innerHTML = `
                         <strong>Faucet Address:</strong> ${wallet.address}<br>
                         <strong>Faucet Balance:</strong> ${ethers.utils.formatEther(balance)} MON
                     `;
+                    debugLog(`Faucet balance updated: ${ethers.utils.formatEther(balance)} MON`);
                 } catch (error) {
-                    faucetBalanceElement.textContent = 'Error loading faucet balance';
-                    console.error('Balance error:', error);
+                    const msg = `Error loading faucet balance: ${error.message}`;
+                    faucetBalanceElement.textContent = msg;
+                    debugLog(msg);
                 }
             }
             
@@ -199,11 +241,14 @@
                 const requesterKey = `monad_faucet_${address.toLowerCase()}`;
                 const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":0}');
                 
+                debugLog(`Checking rate limit for ${address}: ${requestData.count}/${MAX_REQUESTS_PER_DAY} requests`);
+                
                 // Reset counter if it's been more than a day
                 if (now - requestData.firstRequest > DAY_IN_MS) {
                     requestData.count = 0;
                     requestData.firstRequest = now;
                     localStorage.setItem(requesterKey, JSON.stringify(requestData));
+                    debugLog(`Rate limit reset for ${address}`);
                 }
                 
                 return requestData.count < MAX_REQUESTS_PER_DAY;
@@ -221,12 +266,14 @@
                 }
                 
                 localStorage.setItem(requesterKey, JSON.stringify(requestData));
+                debugLog(`Request tracked for ${address}. Count: ${requestData.count}`);
             }
             
             // Show status message
             function showStatus(message, type) {
                 statusMessage.textContent = message;
                 statusMessage.className = 'status ' + type;
+                debugLog(`Status: ${type} - ${message}`);
             }
             
             // Initialize
@@ -235,10 +282,13 @@
             // Request faucet handler
             requestButton.addEventListener('click', async function() {
                 const address = addressInput.value.trim();
+                debugLog(`Request initiated for address: ${address}`);
                 
                 // Validate address
                 if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
-                    showStatus('Please enter a valid EVM address (0x...)', 'error');
+                    const msg = 'Please enter a valid EVM address (0x...)';
+                    showStatus(msg, 'error');
+                    debugLog(msg);
                     return;
                 }
                 
@@ -248,7 +298,9 @@
                     const requestData = JSON.parse(localStorage.getItem(requesterKey));
                     const nextRequestTime = new Date(requestData.firstRequest + DAY_IN_MS);
                     
-                    showStatus(`You've reached the daily limit (${MAX_REQUESTS_PER_DAY} requests). Try again after ${nextRequestTime.toLocaleString()}`, 'error');
+                    const msg = `You've reached the daily limit (${MAX_REQUESTS_PER_DAY} requests). Try again after ${nextRequestTime.toLocaleString()}`;
+                    showStatus(msg, 'error');
+                    debugLog(msg);
                     return;
                 }
                 
@@ -256,31 +308,45 @@
                 showStatus('Processing your request...', 'success');
                 
                 try {
+                    debugLog('Preparing transaction...');
                     // Prepare transaction
                     const tx = {
                         to: address,
                         value: ethers.utils.parseEther(config.faucetAmount)
                     };
                     
+                    debugLog('Sending transaction...');
                     // Send transaction
                     const txResponse = await wallet.sendTransaction(tx);
-                    showStatus(`Transaction sent! Waiting for confirmation... (Hash: ${txResponse.hash})`, 'success');
+                    const msg1 = `Transaction sent! Waiting for confirmation... (Hash: ${txResponse.hash})`;
+                    showStatus(msg1, 'success');
+                    debugLog(msg1);
                     
+                    debugLog('Waiting for transaction confirmation...');
                     // Wait for confirmation
                     const receipt = await txResponse.wait();
                     trackRequest(address);
                     
-                    showStatus(`Success! 0.1 MON sent to ${address}. Tx Hash: ${txResponse.hash}`, 'success');
+                    const msg2 = `Success! 0.1 MON sent to ${address}. Tx Hash: ${txResponse.hash}`;
+                    showStatus(msg2, 'success');
+                    debugLog(msg2);
+                    debugLog(`Transaction details: ${JSON.stringify(receipt, null, 2)}`);
                     
                     // Update balance after sending
                     await updateFaucetBalance();
                 } catch (error) {
                     console.error('Transaction error:', error);
+                    debugLog(`Transaction error: ${error.message}`);
+                    debugLog(`Full error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
                     
                     if (error.message.includes('insufficient funds')) {
                         showStatus('Error: Faucet has insufficient funds', 'error');
                     } else if (error.message.includes('nonce')) {
                         showStatus('Error: Transaction nonce issue. Please try again.', 'error');
+                    } else if (error.message.includes('underpriced')) {
+                        showStatus('Error: Transaction underpriced. Please try again.', 'error');
+                    } else if (error.message.includes('network')) {
+                        showStatus('Error: Network connection issue. Please try again.', 'error');
                     } else {
                         showStatus(`Error: ${error.message}`, 'error');
                     }
