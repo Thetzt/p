@@ -136,63 +136,106 @@
             font-weight: bold;
             margin-bottom: 5px;
         }
+        
+        .loader {
+            border: 4px solid #0f3460;
+            border-top: 4px solid #4cc9f0;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Monad Testnet Faucet</h1>
         
-        <div class="input-group">
-            <label for="address">Your Monad Testnet Address (0x...)</label>
-            <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
-        </div>
+        <div id="loader" class="loader"></div>
         
-        <button id="requestButton">Request 0.1 MON</button>
-        
-        <div id="statusMessage" class="status"></div>
-        
-        <div class="faucet-balance" id="faucetBalance">
-            Loading faucet balance...
-        </div>
-        
-        <div class="network-info">
-            <h3>Monad Testnet Information</h3>
-            <p><strong>RPC URL:</strong> https://testnet-rpc.monad.xyz</p>
-            <p><strong>Chain ID:</strong> 10143</p>
-            <p><strong>Currency:</strong> MON</p>
-            <p><strong>Block Explorer:</strong> https://testnet-explorer.monad.xyz</p>
-        </div>
-        
-        <div class="debug-info">
-            <div class="debug-title">Debug Information:</div>
-            <div id="debugConsole"></div>
+        <div id="appContent" style="display: none;">
+            <div class="input-group">
+                <label for="address">Your Monad Testnet Address (0x...)</label>
+                <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
+            </div>
+            
+            <button id="requestButton">Request 0.1 MON</button>
+            
+            <div id="statusMessage" class="status"></div>
+            
+            <div class="faucet-balance" id="faucetBalance">
+                Loading faucet balance...
+            </div>
+            
+            <div class="network-info">
+                <h3>Monad Testnet Information</h3>
+                <p><strong>RPC URL:</strong> https://testnet-rpc.monad.xyz</p>
+                <p><strong>Chain ID:</strong> 10143</p>
+                <p><strong>Currency:</strong> MON</p>
+                <p><strong>Block Explorer:</strong> https://testnet-explorer.monad.xyz</p>
+            </div>
+            
+            <div class="debug-info">
+                <div class="debug-title">Debug Information:</div>
+                <div id="debugConsole"></div>
+            </div>
         </div>
     </div>
 
+    <!-- Load ethers.js first -->
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="application/javascript"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        // First check if ethers is loaded
+        function checkEthersLoaded() {
+            const loader = document.getElementById('loader');
+            const appContent = document.getElementById('appContent');
+            
+            if (typeof ethers === 'undefined') {
+                debugLog('Ethers.js not loaded yet, waiting...');
+                setTimeout(checkEthersLoaded, 100);
+                return;
+            }
+            
+            // Ethers is loaded, proceed with app initialization
+            loader.style.display = 'none';
+            appContent.style.display = 'block';
+            initializeApp();
+        }
+        
+        // Debug logging
+        function debugLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const debugConsole = document.getElementById('debugConsole');
+            if (debugConsole) {
+                debugConsole.innerHTML += `[${timestamp}] ${message}<br>`;
+                debugConsole.scrollTop = debugConsole.scrollHeight;
+            }
+            console.log(message);
+        }
+        
+        // Initialize the application after ethers is loaded
+        function initializeApp() {
+            debugLog('Ethers.js successfully loaded, version: ' + ethers.version);
+            
             const addressInput = document.getElementById('address');
             const requestButton = document.getElementById('requestButton');
             const statusMessage = document.getElementById('statusMessage');
             const faucetBalanceElement = document.getElementById('faucetBalance');
-            const debugConsole = document.getElementById('debugConsole');
             
             // Configuration
             const config = {
                 privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
                 rpcUrl: 'https://testnet-rpc.monad.xyz',
-                chainId: 10143, // Updated chain ID
+                chainId: 10143,
                 faucetAmount: '0.1' // in MON
             };
-            
-            // Debug logging
-            function debugLog(message) {
-                const timestamp = new Date().toLocaleTimeString();
-                debugConsole.innerHTML += `[${timestamp}] ${message}<br>`;
-                debugConsole.scrollTop = debugConsole.scrollHeight;
-                console.log(message);
-            }
             
             // Initialize provider and wallet
             let provider, wallet;
@@ -207,154 +250,163 @@
                 debugLog('Initializing wallet...');
                 wallet = new ethers.Wallet(config.privateKey, provider);
                 debugLog(`Wallet address: ${wallet.address}`);
+                
+                // Now that we have ethers, show the UI
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('appContent').style.display = 'block';
+                
+                // Rate limiting using localStorage
+                const MAX_REQUESTS_PER_DAY = 3;
+                const DAY_IN_MS = 24 * 60 * 60 * 1000;
+                
+                // Update faucet balance display
+                async function updateFaucetBalance() {
+                    try {
+                        debugLog('Fetching faucet balance...');
+                        const balance = await provider.getBalance(wallet.address);
+                        faucetBalanceElement.innerHTML = `
+                            <strong>Faucet Address:</strong> ${wallet.address}<br>
+                            <strong>Faucet Balance:</strong> ${ethers.utils.formatEther(balance)} MON
+                        `;
+                        debugLog(`Faucet balance updated: ${ethers.utils.formatEther(balance)} MON`);
+                    } catch (error) {
+                        const msg = `Error loading faucet balance: ${error.message}`;
+                        faucetBalanceElement.textContent = msg;
+                        debugLog(msg);
+                    }
+                }
+                
+                // Check if address can request funds
+                function canRequestFunds(address) {
+                    if (!address) return false;
+                    
+                    const now = Date.now();
+                    const requesterKey = `monad_faucet_${address.toLowerCase()}`;
+                    const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":0}');
+                    
+                    debugLog(`Checking rate limit for ${address}: ${requestData.count}/${MAX_REQUESTS_PER_DAY} requests`);
+                    
+                    // Reset counter if it's been more than a day
+                    if (now - requestData.firstRequest > DAY_IN_MS) {
+                        requestData.count = 0;
+                        requestData.firstRequest = now;
+                        localStorage.setItem(requesterKey, JSON.stringify(requestData));
+                        debugLog(`Rate limit reset for ${address}`);
+                    }
+                    
+                    return requestData.count < MAX_REQUESTS_PER_DAY;
+                }
+                
+                // Track request in localStorage
+                function trackRequest(address) {
+                    const now = Date.now();
+                    const requesterKey = `monad_faucet_${address.toLowerCase()}`;
+                    const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":now}');
+                    
+                    requestData.count++;
+                    if (requestData.firstRequest === 0) {
+                        requestData.firstRequest = now;
+                    }
+                    
+                    localStorage.setItem(requesterKey, JSON.stringify(requestData));
+                    debugLog(`Request tracked for ${address}. Count: ${requestData.count}`);
+                }
+                
+                // Show status message
+                function showStatus(message, type) {
+                    statusMessage.textContent = message;
+                    statusMessage.className = 'status ' + type;
+                    debugLog(`Status: ${type} - ${message}`);
+                }
+                
+                // Initialize
+                updateFaucetBalance();
+                
+                // Request faucet handler
+                requestButton.addEventListener('click', async function() {
+                    const address = addressInput.value.trim();
+                    debugLog(`Request initiated for address: ${address}`);
+                    
+                    // Validate address
+                    if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
+                        const msg = 'Please enter a valid EVM address (0x...)';
+                        showStatus(msg, 'error');
+                        debugLog(msg);
+                        return;
+                    }
+                    
+                    // Check rate limit
+                    if (!canRequestFunds(address)) {
+                        const requesterKey = `monad_faucet_${address.toLowerCase()}`;
+                        const requestData = JSON.parse(localStorage.getItem(requesterKey));
+                        const nextRequestTime = new Date(requestData.firstRequest + DAY_IN_MS);
+                        
+                        const msg = `You've reached the daily limit (${MAX_REQUESTS_PER_DAY} requests). Try again after ${nextRequestTime.toLocaleString()}`;
+                        showStatus(msg, 'error');
+                        debugLog(msg);
+                        return;
+                    }
+                    
+                    requestButton.disabled = true;
+                    showStatus('Processing your request...', 'success');
+                    
+                    try {
+                        debugLog('Preparing transaction...');
+                        // Prepare transaction
+                        const tx = {
+                            to: address,
+                            value: ethers.utils.parseEther(config.faucetAmount)
+                        };
+                        
+                        debugLog('Sending transaction...');
+                        // Send transaction
+                        const txResponse = await wallet.sendTransaction(tx);
+                        const msg1 = `Transaction sent! Waiting for confirmation... (Hash: ${txResponse.hash})`;
+                        showStatus(msg1, 'success');
+                        debugLog(msg1);
+                        
+                        debugLog('Waiting for transaction confirmation...');
+                        // Wait for confirmation
+                        const receipt = await txResponse.wait();
+                        trackRequest(address);
+                        
+                        const msg2 = `Success! 0.1 MON sent to ${address}. Tx Hash: ${txResponse.hash}`;
+                        showStatus(msg2, 'success');
+                        debugLog(msg2);
+                        debugLog(`Transaction details: ${JSON.stringify(receipt, null, 2)}`);
+                        
+                        // Update balance after sending
+                        await updateFaucetBalance();
+                    } catch (error) {
+                        console.error('Transaction error:', error);
+                        debugLog(`Transaction error: ${error.message}`);
+                        debugLog(`Full error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
+                        
+                        if (error.message.includes('insufficient funds')) {
+                            showStatus('Error: Faucet has insufficient funds', 'error');
+                        } else if (error.message.includes('nonce')) {
+                            showStatus('Error: Transaction nonce issue. Please try again.', 'error');
+                        } else if (error.message.includes('underpriced')) {
+                            showStatus('Error: Transaction underpriced. Please try again.', 'error');
+                        } else if (error.message.includes('network')) {
+                            showStatus('Error: Network connection issue. Please try again.', 'error');
+                        } else {
+                            showStatus(`Error: ${error.message}`, 'error');
+                        }
+                    } finally {
+                        requestButton.disabled = false;
+                    }
+                });
+                
             } catch (error) {
                 debugLog(`Initialization error: ${error.message}`);
                 showStatus(`Initialization error: ${error.message}`, 'error');
             }
-            
-            // Rate limiting using localStorage
-            const MAX_REQUESTS_PER_DAY = 3;
-            const DAY_IN_MS = 24 * 60 * 60 * 1000;
-            
-            // Update faucet balance display
-            async function updateFaucetBalance() {
-                try {
-                    debugLog('Fetching faucet balance...');
-                    const balance = await provider.getBalance(wallet.address);
-                    faucetBalanceElement.innerHTML = `
-                        <strong>Faucet Address:</strong> ${wallet.address}<br>
-                        <strong>Faucet Balance:</strong> ${ethers.utils.formatEther(balance)} MON
-                    `;
-                    debugLog(`Faucet balance updated: ${ethers.utils.formatEther(balance)} MON`);
-                } catch (error) {
-                    const msg = `Error loading faucet balance: ${error.message}`;
-                    faucetBalanceElement.textContent = msg;
-                    debugLog(msg);
-                }
-            }
-            
-            // Check if address can request funds
-            function canRequestFunds(address) {
-                if (!address) return false;
-                
-                const now = Date.now();
-                const requesterKey = `monad_faucet_${address.toLowerCase()}`;
-                const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":0}');
-                
-                debugLog(`Checking rate limit for ${address}: ${requestData.count}/${MAX_REQUESTS_PER_DAY} requests`);
-                
-                // Reset counter if it's been more than a day
-                if (now - requestData.firstRequest > DAY_IN_MS) {
-                    requestData.count = 0;
-                    requestData.firstRequest = now;
-                    localStorage.setItem(requesterKey, JSON.stringify(requestData));
-                    debugLog(`Rate limit reset for ${address}`);
-                }
-                
-                return requestData.count < MAX_REQUESTS_PER_DAY;
-            }
-            
-            // Track request in localStorage
-            function trackRequest(address) {
-                const now = Date.now();
-                const requesterKey = `monad_faucet_${address.toLowerCase()}`;
-                const requestData = JSON.parse(localStorage.getItem(requesterKey) || '{"count":0,"firstRequest":now}');
-                
-                requestData.count++;
-                if (requestData.firstRequest === 0) {
-                    requestData.firstRequest = now;
-                }
-                
-                localStorage.setItem(requesterKey, JSON.stringify(requestData));
-                debugLog(`Request tracked for ${address}. Count: ${requestData.count}`);
-            }
-            
-            // Show status message
-            function showStatus(message, type) {
-                statusMessage.textContent = message;
-                statusMessage.className = 'status ' + type;
-                debugLog(`Status: ${type} - ${message}`);
-            }
-            
-            // Initialize
-            updateFaucetBalance();
-            
-            // Request faucet handler
-            requestButton.addEventListener('click', async function() {
-                const address = addressInput.value.trim();
-                debugLog(`Request initiated for address: ${address}`);
-                
-                // Validate address
-                if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
-                    const msg = 'Please enter a valid EVM address (0x...)';
-                    showStatus(msg, 'error');
-                    debugLog(msg);
-                    return;
-                }
-                
-                // Check rate limit
-                if (!canRequestFunds(address)) {
-                    const requesterKey = `monad_faucet_${address.toLowerCase()}`;
-                    const requestData = JSON.parse(localStorage.getItem(requesterKey));
-                    const nextRequestTime = new Date(requestData.firstRequest + DAY_IN_MS);
-                    
-                    const msg = `You've reached the daily limit (${MAX_REQUESTS_PER_DAY} requests). Try again after ${nextRequestTime.toLocaleString()}`;
-                    showStatus(msg, 'error');
-                    debugLog(msg);
-                    return;
-                }
-                
-                requestButton.disabled = true;
-                showStatus('Processing your request...', 'success');
-                
-                try {
-                    debugLog('Preparing transaction...');
-                    // Prepare transaction
-                    const tx = {
-                        to: address,
-                        value: ethers.utils.parseEther(config.faucetAmount)
-                    };
-                    
-                    debugLog('Sending transaction...');
-                    // Send transaction
-                    const txResponse = await wallet.sendTransaction(tx);
-                    const msg1 = `Transaction sent! Waiting for confirmation... (Hash: ${txResponse.hash})`;
-                    showStatus(msg1, 'success');
-                    debugLog(msg1);
-                    
-                    debugLog('Waiting for transaction confirmation...');
-                    // Wait for confirmation
-                    const receipt = await txResponse.wait();
-                    trackRequest(address);
-                    
-                    const msg2 = `Success! 0.1 MON sent to ${address}. Tx Hash: ${txResponse.hash}`;
-                    showStatus(msg2, 'success');
-                    debugLog(msg2);
-                    debugLog(`Transaction details: ${JSON.stringify(receipt, null, 2)}`);
-                    
-                    // Update balance after sending
-                    await updateFaucetBalance();
-                } catch (error) {
-                    console.error('Transaction error:', error);
-                    debugLog(`Transaction error: ${error.message}`);
-                    debugLog(`Full error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
-                    
-                    if (error.message.includes('insufficient funds')) {
-                        showStatus('Error: Faucet has insufficient funds', 'error');
-                    } else if (error.message.includes('nonce')) {
-                        showStatus('Error: Transaction nonce issue. Please try again.', 'error');
-                    } else if (error.message.includes('underpriced')) {
-                        showStatus('Error: Transaction underpriced. Please try again.', 'error');
-                    } else if (error.message.includes('network')) {
-                        showStatus('Error: Network connection issue. Please try again.', 'error');
-                    } else {
-                        showStatus(`Error: ${error.message}`, 'error');
-                    }
-                } finally {
-                    requestButton.disabled = false;
-                }
-            });
-        });
+        }
+        
+        // Start checking for ethers.js
+        document.getElementById('loader').style.display = 'block';
+        checkEthersLoaded();
     </script>
 </body>
 </html>
