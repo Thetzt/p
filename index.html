@@ -26,27 +26,33 @@
             background: linear-gradient(135deg, var(--dark), #16213e);
             color: var(--light);
             min-height: 100vh;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            padding: 0;
+            margin: 0;
         }
         
         .container {
             width: 100%;
-            max-width: 500px;
+            min-height: 100vh;
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .content {
+            max-width: 500px;
+            width: 100%;
+            margin: 0 auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
         
         h1 {
             color: var(--secondary);
             text-align: center;
-            margin-bottom: 20px;
+            margin: 20px 0;
             font-weight: 600;
         }
         
@@ -111,7 +117,7 @@
             background: rgba(0, 0, 0, 0.2);
             border-radius: 8px;
             padding: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         
         .status-row {
@@ -162,7 +168,8 @@
         
         .footer {
             text-align: center;
-            margin-top: 30px;
+            margin-top: auto;
+            padding: 20px 0;
             color: rgba(255, 255, 255, 0.5);
             font-size: 0.8rem;
         }
@@ -181,7 +188,7 @@
         .status-message {
             padding: 12px;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin: 0 0 15px 0;
             display: none;
             font-size: 0.9rem;
         }
@@ -198,55 +205,66 @@
             display: block;
         }
         
+        .section-title {
+            color: var(--light); 
+            margin: 20px 0 15px; 
+            font-size: 1.3rem; 
+            font-weight: 500; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+            padding-bottom: 8px;
+        }
+        
         @media (max-width: 600px) {
             .container {
-                padding: 20px;
+                padding: 15px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>MON FAUCET</h1>
-        
-        <div class="input-group">
-            <label><strong>MON Address</strong></label>
-            <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
-        </div>
-        
-        <button id="requestButton">Request 0.1 MON</button>
-        
-        <div id="statusMessage" class="status-message"></div>
-        
-        <div class="status-card" id="statusCard">
-            <div class="status-row">
-                <span class="status-label">Daily Limit</span>
-                <span class="status-value">2 requests</span>
+        <div class="content">
+            <h1>MON FAUCET</h1>
+            
+            <div class="input-group">
+                <label><strong>MON Address</strong></label>
+                <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
             </div>
-            <div class="status-row">
-                <span class="status-label">Your Requests Today</span>
-                <span class="status-value" id="requestsCount">0/2</span>
+            
+            <button id="requestButton">Request 0.1 MON</button>
+            
+            <!-- Status message will appear here -->
+            <div id="statusMessage" class="status-message"></div>
+            
+            <div class="status-card" id="statusCard">
+                <div class="status-row">
+                    <span class="status-label">Daily Limit</span>
+                    <span class="status-value">2 requests</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Your Requests Today</span>
+                    <span class="status-value" id="requestsCount">0/2</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Tokens per Request</span>
+                    <span class="status-value">0.1 MON</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Next Request Available</span>
+                    <span class="status-value" id="nextRequest">Now</span>
+                </div>
             </div>
-            <div class="status-row">
-                <span class="status-label">Tokens per Request</span>
-                <span class="status-value">0.1 MON</span>
+            
+            <div class="section-title">Recent Activity</div>
+            <div id="activityFeed">
+                <!-- Activity items will be added here dynamically -->
+                <p style="color: rgba(255,255,255,0.5);">No recent activity</p>
             </div>
-            <div class="status-row">
-                <span class="status-label">Next Request Available</span>
-                <span class="status-value" id="nextRequest">Now</span>
+            
+            <div class="footer">
+                © 2025 MON Faucet. All rights reserved.<br>
+                Network: <span class="network-badge">Testnet</span>
             </div>
-        </div>
-        
-        <h2 style="color: var(--light); margin: 20px 0 15px; font-size: 1.3rem; font-weight: 500; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px;">
-            Recent Activity
-        </h2>
-        <div id="activityFeed">
-            <!-- Activity items will be added here dynamically -->
-        </div>
-        
-        <div class="footer">
-            © 2025 MON Faucet. All rights reserved.<br>
-            Network: <span class="network-badge">Testnet</span>
         </div>
     </div>
 
@@ -314,9 +332,15 @@
                 const address = addressInput.value.trim();
                 clearStatusMessage();
                 
-                // Validate address
+                // Case 1: No address entered
+                if (!address) {
+                    showStatusMessage('Please enter your MON address (0x...)', 'error');
+                    return;
+                }
+                
+                // Case 2: Invalid address format
                 if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
-                    showStatusMessage('Please enter a valid EVM address (0x...)', 'error');
+                    showStatusMessage('Invalid EVM address format. Please enter a valid address (0x...)', 'error');
                     return;
                 }
                 
@@ -331,8 +355,9 @@
                     userTodayRequests.count = 0;
                 }
                 
+                // Case 3: Daily limit reached
                 if (userTodayRequests.count >= config.dailyLimit) {
-                    showStatusMessage(`You've reached your daily limit of ${config.dailyLimit} requests.`, 'error');
+                    showStatusMessage(`Daily limit reached (${config.dailyLimit} requests per day). Try again tomorrow.`, 'error');
                     return;
                 }
                 
@@ -370,10 +395,13 @@
                     updateRequestStatus();
                     renderActivityFeed();
                     
-                    showStatusMessage(`Successfully sent 0.1 MON to ${address.substring(0, 6)}...${address.substring(address.length - 4)}`, 'success');
+                    // Case 4: Success
+                    const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+                    showStatusMessage(`Success! 0.1 MON sent to ${shortAddress}`, 'success');
                     
                 } catch (error) {
                     console.error('Transaction error:', error);
+                    // Case 5: Transaction failed
                     let errorMsg = 'Transaction failed. Please try again.';
                     if (error.message.includes('insufficient funds')) {
                         errorMsg = 'Faucet has insufficient funds.';
@@ -465,8 +493,10 @@
                 statusMessage.textContent = message;
                 statusMessage.className = `status-message status-${type}`;
                 
-                // Auto-hide after 5 seconds
-                setTimeout(clearStatusMessage, 5000);
+                // Auto-hide after 5 seconds (except for success messages)
+                if (type !== 'success') {
+                    setTimeout(clearStatusMessage, 5000);
+                }
             }
             
             // Clear status message
