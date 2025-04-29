@@ -51,7 +51,7 @@
         }
         
         .input-group {
-            margin-bottom: 25px;
+            margin-bottom: 15px;
         }
         
         label {
@@ -90,7 +90,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             box-shadow: 0 4px 15px rgba(110, 69, 226, 0.4);
         }
         
@@ -179,10 +179,11 @@
         }
         
         .status-message {
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             display: none;
+            font-size: 0.9rem;
         }
         
         .status-error {
@@ -311,6 +312,7 @@
             // Request faucet handler
             requestButton.addEventListener('click', async function() {
                 const address = addressInput.value.trim();
+                clearStatusMessage();
                 
                 // Validate address
                 if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -336,7 +338,6 @@
                 
                 requestButton.disabled = true;
                 requestButton.textContent = 'Processing...';
-                clearStatusMessage();
                 
                 try {
                     // Prepare and send transaction
@@ -369,11 +370,17 @@
                     updateRequestStatus();
                     renderActivityFeed();
                     
-                    showStatusMessage(`Success! 0.1 MON sent to ${address}`, 'success');
+                    showStatusMessage(`Successfully sent 0.1 MON to ${address.substring(0, 6)}...${address.substring(address.length - 4)}`, 'success');
                     
                 } catch (error) {
                     console.error('Transaction error:', error);
-                    showStatusMessage(`Error: ${error.message}`, 'error');
+                    let errorMsg = 'Transaction failed. Please try again.';
+                    if (error.message.includes('insufficient funds')) {
+                        errorMsg = 'Faucet has insufficient funds.';
+                    } else if (error.message.includes('underpriced')) {
+                        errorMsg = 'Network congestion. Please try again.';
+                    }
+                    showStatusMessage(errorMsg, 'error');
                 } finally {
                     requestButton.disabled = false;
                     requestButton.textContent = 'Request 0.1 MON';
