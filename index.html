@@ -204,40 +204,28 @@
         <button id="requestButton">Request Faucet</button>
         
         <h2>Status</h2>
-        <div class="status-card">
+        <div class="status-card" id="statusCard">
             <div class="status-row">
                 <span class="status-label">Daily Limit</span>
-                <span class="status-value">3 requests</span>
+                <span class="status-value">2 requests</span>
             </div>
             <div class="status-row">
                 <span class="status-label">Your Requests Today</span>
-                <span class="status-value">1/3</span>
+                <span class="status-value" id="requestsCount">0/2</span>
             </div>
             <div class="status-row">
                 <span class="status-label">Tokens per Request</span>
-                <span class="status-value">10 MON</span>
+                <span class="status-value">0.1 MON</span>
             </div>
             <div class="status-row">
                 <span class="status-label">Next Request Available</span>
-                <span class="status-value available">Now</span>
+                <span class="status-value available" id="nextRequest">Now</span>
             </div>
         </div>
         
         <h2>Recent Activity</h2>
-        <div class="activity-item">
-            <div class="activity-title">Tokens Received</div>
-            <div class="activity-details">
-                Today, 10:32 AM<br>
-                <span class="activity-address">10 MON sent to 0x71...3e4f</span>
-            </div>
-        </div>
-        
-        <div class="activity-item">
-            <div class="activity-title">Tokens Received</div>
-            <div class="activity-details">
-                Apr 28, 2025<br>
-                <span class="activity-address">10 MON sent to 0x71...3e4f</span>
-            </div>
+        <div id="activityFeed">
+            <!-- Activity items will be added here dynamically -->
         </div>
         
         <div class="footer">
@@ -246,24 +234,43 @@
         </div>
     </div>
 
+    <!-- Load ethers.js from CDN with local fallback -->
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
+    <script>
+        // Local fallback if CDN fails
+        if (typeof ethers === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"><\/script>');
+        }
+    </script>
     <script>
         // Configuration
         const config = {
             privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
             rpcUrl: 'https://testnet-rpc.monad.xyz',
             chainId: 10143,
-            faucetAmount: '10' // MON tokens per request
+            faucetAmount: '0.1', // MON tokens per request
+            dailyLimit: 2
         };
+
+        // Transaction history
+        let transactionHistory = JSON.parse(localStorage.getItem('monadFaucetTransactions')) || [];
+        
+        // User request tracking
+        let userRequests = JSON.parse(localStorage.getItem('monadFaucetUserRequests')) || {};
 
         // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', async function() {
             const addressInput = document.getElementById('address');
             const requestButton = document.getElementById('requestButton');
+            const activityFeed = document.getElementById('activityFeed');
             
             // Initialize provider and wallet
             let provider, wallet;
             try {
+                // Show loading state
+                requestButton.disabled = true;
+                requestButton.textContent = 'Initializing...';
+                
                 provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
                     chainId: config.chainId,
                     name: 'monad-testnet'
@@ -271,9 +278,17 @@
                 
                 wallet = new ethers.Wallet(config.privateKey, provider);
                 console.log('Faucet address:', wallet.address);
+                
+                // Update UI
+                updateRequestStatus();
+                renderActivityFeed();
+                requestButton.disabled = false;
+                requestButton.textContent = 'Request Faucet';
+                
             } catch (error) {
                 console.error('Initialization error:', error);
-                alert('Failed to initialize wallet. Please check console for details.');
+                requestButton.textContent = 'Initialization Failed';
+                alert('Failed to connect to blockchain. Please try again later.');
                 return;
             }
 
@@ -287,6 +302,22 @@
                     return;
                 }
                 
+                // Check daily limit
+                const today = new Date().toDateString();
+                const userKey = address.toLowerCase();
+                const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
+                
+                if (userTodayRequests.date !== today) {
+                    // Reset counter for new day
+                    userTodayRequests.date = today;
+                    userTodayRequests.count = 0;
+                }
+                
+                if (userTodayRequests.count >= config.dailyLimit) {
+                    alert(`You've reached your daily limit of ${config.dailyLimit} requests.`);
+                    return;
+                }
+                
                 requestButton.disabled = true;
                 requestButton.textContent = 'Processing...';
                 
@@ -297,10 +328,31 @@
                         value: ethers.utils.parseEther(config.faucetAmount)
                     });
                     
-                    alert(`Transaction sent! 10 MON will be sent to ${address}\nTx Hash: ${tx.hash}`);
+                    // Record the transaction
+                    const txRecord = {
+                        hash: tx.hash,
+                        to: address,
+                        amount: config.faucetAmount,
+                        timestamp: new Date().toISOString()
+                    };
                     
-                    // In a real app, you would update the UI with the new transaction
-                    // and refresh the request count/activity log
+                    // Update transaction history (keep only last 10)
+                    transactionHistory.unshift(txRecord);
+                    if (transactionHistory.length > 10) {
+                        transactionHistory = transactionHistory.slice(0, 10);
+                    }
+                    localStorage.setItem('monadFaucetTransactions', JSON.stringify(transactionHistory));
+                    
+                    // Update user request count
+                    userTodayRequests.count++;
+                    userRequests[userKey] = userTodayRequests;
+                    localStorage.setItem('monadFaucetUserRequests', JSON.stringify(userRequests));
+                    
+                    // Update UI
+                    updateRequestStatus();
+                    renderActivityFeed();
+                    
+                    alert(`Success! 0.1 MON sent to ${address}\nTx Hash: ${tx.hash}`);
                     
                 } catch (error) {
                     console.error('Transaction error:', error);
@@ -310,6 +362,76 @@
                     requestButton.textContent = 'Request Faucet';
                 }
             });
+            
+            // Update request status UI
+            function updateRequestStatus() {
+                const address = addressInput.value.trim();
+                if (!address) return;
+                
+                const userKey = address.toLowerCase();
+                const today = new Date().toDateString();
+                const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
+                
+                // Reset if it's a new day
+                if (userTodayRequests.date !== today) {
+                    userTodayRequests.date = today;
+                    userTodayRequests.count = 0;
+                }
+                
+                document.getElementById('requestsCount').textContent = 
+                    `${userTodayRequests.count}/${config.dailyLimit}`;
+                
+                const nextRequestEl = document.getElementById('nextRequest');
+                if (userTodayRequests.count >= config.dailyLimit) {
+                    nextRequestEl.textContent = 'Tomorrow';
+                    nextRequestEl.classList.remove('available');
+                } else {
+                    nextRequestEl.textContent = 'Now';
+                    nextRequestEl.classList.add('available');
+                }
+            }
+            
+            // Render activity feed
+            function renderActivityFeed() {
+                activityFeed.innerHTML = '';
+                
+                if (transactionHistory.length === 0) {
+                    activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No recent activity</p>';
+                    return;
+                }
+                
+                transactionHistory.forEach(tx => {
+                    const date = new Date(tx.timestamp);
+                    const dateStr = date.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                    });
+                    
+                    const timeStr = date.toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                    
+                    const address = tx.to;
+                    const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+                    
+                    const activityItem = document.createElement('div');
+                    activityItem.className = 'activity-item';
+                    activityItem.innerHTML = `
+                        <div class="activity-title">Tokens Sent</div>
+                        <div class="activity-details">
+                            ${dateStr}, ${timeStr}<br>
+                            <span class="activity-address">${tx.amount} MON sent to ${shortAddress}</span>
+                        </div>
+                    `;
+                    
+                    activityFeed.appendChild(activityItem);
+                });
+            }
+            
+            // Update status when address changes
+            addressInput.addEventListener('input', updateRequestStatus);
         });
     </script>
 </body>
