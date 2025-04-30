@@ -35,20 +35,6 @@
             margin: 0 auto 15px;
             border: 3px solid #0088cc;
         }
-        .default-avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: #0088cc;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 36px;
-            font-weight: bold;
-            margin: 0 auto 15px;
-            border: 3px solid #0088cc;
-        }
         .login-btn {
             background: #0088cc;
             color: white;
@@ -79,14 +65,14 @@
         <p>Connect your Telegram account to get started</p>
         
         <div id="auth-container">
-            <!-- Content will be loaded dynamically -->
+            <!-- Dynamically loaded content -->
         </div>
     </div>
 
     <script>
         const authContainer = document.getElementById('auth-container');
-        
-        // Check authentication state on page load
+
+        // Check auth state on page load
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const userData = urlParams.get('user');
@@ -106,38 +92,31 @@
                 storedUser ? showUserProfile(JSON.parse(storedUser)) : showLoginButton();
             }
         });
-        
+
         function startTelegramAuth() {
-            // In production, this should call your backend to get a real token
-            const mockToken = "mock_" + Math.random().toString(36).substring(2, 15);
+            // Generate a unique session ID (replace with server-side token in production)
+            const sessionId = "session_" + Math.random().toString(36).substring(2, 15);
             
-            // Try to open Telegram app
-            window.location.href = `tg://resolve?domain=uxxucc_bot&start=${mockToken}`;
+            // Open Telegram bot with deep link
+            window.location.href = `tg://resolve?domain=uxxucc_bot&start=${sessionId}`;
             
-            // Fallback for desktop browsers
+            // Fallback for desktop users
             setTimeout(() => {
-                window.location.href = `https://t.me/uxxucc_bot?start=${mockToken}`;
+                window.location.href = `https://t.me/uxxucc_bot?start=${sessionId}`;
             }, 500);
         }
-        
+
         function showUserProfile(user) {
-            const initials = user.first_name ? user.first_name.charAt(0) : 'T';
-            
             authContainer.innerHTML = `
                 <div class="profile-card">
-                    ${user.photo_url ? 
-                        `<img src="${user.photo_url}" class="avatar" alt="Profile Photo">` : 
-                        `<div class="default-avatar">${initials}</div>`
-                    }
-                    
-                    <h2>${user.first_name || 'User'} ${user.last_name || ''}</h2>
-                    ${user.username ? `<p>@${user.username}</p>` : ''}
-                    
+                    <img src="${user.photo_url}" class="avatar" alt="Profile Photo">
+                    <h2>${user.first_name} ${user.last_name || ''}</h2>
+                    <p>@${user.username}</p>
                     <button class="logout-btn" onclick="logout()">Log Out</button>
                 </div>
             `;
         }
-        
+
         function showLoginButton() {
             authContainer.innerHTML = `
                 <button class="login-btn" onclick="startTelegramAuth()">
@@ -149,7 +128,7 @@
                 </button>
             `;
         }
-        
+
         function logout() {
             localStorage.removeItem('tg_user_data');
             showLoginButton();
