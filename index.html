@@ -1,46 +1,94 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Telegram Login Example</title>
-  <script async src="https://telegram.org/js/telegram-widget.js?7"
-          data-telegram-login="uxxucc_bot"  <!-- without @ -->
-          data-size="medium"
-          data-userpic="true"
-          data-onauth="onTelegramAuth(user)"
-          data-request-access="write">
-  </script>
-  <script type="text/javascript">
-    function onTelegramAuth(user) {
-      document.getElementById('telegram-name').innerText = user.first_name + ' ' + (user.last_name || '');
-      document.getElementById('telegram-photo').src = user.photo_url;
-      document.getElementById('login-box').style.display = 'none';
-      document.getElementById('profile-box').style.display = 'flex';
-    }
-  </script>
-  <style>
-    #profile-box {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      display: none;
-      align-items: center;
-    }
-    #telegram-photo {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      margin-right: 8px;
-    }
-  </style>
+    <title>ClaimPX - Telegram Login</title>
+    <style>
+        /* Login Button Styling */
+        .tg-login-btn {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        /* User Profile Display */
+        .tg-user-profile {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        
+        .tg-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+        }
+    </style>
 </head>
 <body>
-  <div id="login-box">
-    <!-- Telegram login button appears here -->
-  </div>
+    <!-- This div will show either login button or user profile -->
+    <div id="telegram-auth-container">
+        <!-- Content will be added by JavaScript -->
+    </div>
 
-  <div id="profile-box">
-    <img id="telegram-photo" src="" alt="Profile Photo">
-    <span id="telegram-name"></span>
-  </div>
+    <!-- Your website content -->
+    <h1>Welcome to ClaimPX</h1>
+    <p>Connect with Telegram to continue.</p>
+
+    <script>
+        // Check if user is already logged in
+        function checkLogin() {
+            const userData = localStorage.getItem('telegram_user');
+            const container = document.getElementById('telegram-auth-container');
+            
+            if (userData) {
+                // Show user profile
+                const user = JSON.parse(userData);
+                container.innerHTML = `
+                    <div class="tg-user-profile">
+                        <img class="tg-avatar" src="${user.photo_url}" 
+                             onerror="this.src='telegram-logo.png'">
+                        <span>${user.first_name}</span>
+                    </div>
+                `;
+            } else {
+                // Show login button
+                container.innerHTML = `
+                    <button class="tg-login-btn" onclick="loginWithTelegram()">
+                        <img src="telegram-logo.png" width="20" height="20">
+                        Login with Telegram
+                    </button>
+                `;
+            }
+        }
+        
+        // Redirect to Telegram auth
+        function loginWithTelegram() {
+            const botUsername = "uxxucc_bot";
+            const authUrl = `https://oauth.telegram.org/auth?bot_id=7666230446&origin=${encodeURIComponent(window.location.hostname)}&embed=0&request_access=write`;
+            window.location.href = authUrl;
+        }
+        
+        // Check on page load
+        window.onload = checkLogin;
+    </script>
 </body>
 </html>
