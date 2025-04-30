@@ -2,117 +2,39 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClaimPX Mobile</title>
-    <style>
-        /* Mobile-first styles */
-        body {
-            font-family: Arial, sans-serif;
-            padding: 15px;
-            max-width: 100%;
-            overflow-x: hidden;
-        }
-        
-        .tg-login-btn {
-            background: #0088cc;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
-            max-width: 300px;
-            margin: 30px auto;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.16);
-        }
-        
-        .tg-user-profile {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin: 20px auto;
-            max-width: 300px;
-        }
-        
-        .tg-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-        }
-        
-        .logout-btn {
-            color: #0088cc;
-            text-decoration: underline;
-            font-size: 14px;
-            margin-top: 10px;
-            display: block;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <h1>Welcome to ClaimPX</h1>
-    <p>Please login with Telegram to continue</p>
-    
-    <div id="telegram-auth-container">
-        <!-- Will be filled by JavaScript -->
-    </div>
-
+    <title>Telegram Login</title>
     <script>
-        // Check login status on load
-        function checkAuth() {
-            const user = JSON.parse(localStorage.getItem('telegram_user') || 'null');
-            const container = document.getElementById('telegram-auth-container');
-            
-            if (user) {
-                container.innerHTML = `
-                    <div class="tg-user-profile">
-                        <img class="tg-avatar" src="${user.photo_url || 'telegram-logo.png'}" 
-                             onerror="this.src='telegram-logo.png'">
-                        <div>
-                            <strong>${user.first_name || 'User'}</strong>
-                            ${user.username ? `<br>@${user.username}` : ''}
-                        </div>
-                    </div>
-                    <a class="logout-btn" onclick="logout()">Logout</a>
-                `;
-            } else {
-                container.innerHTML = `
-                    <button class="tg-login-btn" onclick="loginWithTelegram()">
-                        <img src="telegram-logo.png" width="24" height="24">
-                        Login with Telegram
-                    </button>
-                `;
+        function processAuth() {
+            try {
+                const hash = window.location.hash.substring(1);
+                const params = new URLSearchParams(hash);
+                
+                const user = {
+                    id: params.get('id'),
+                    first_name: params.get('first_name'),
+                    last_name: params.get('last_name'),
+                    username: params.get('username'),
+                    photo_url: params.get('photo_url'),
+                    auth_date: params.get('auth_date'),
+                    hash: params.get('hash')
+                };
+                
+                if (user.id) {
+                    localStorage.setItem('telegram_user', JSON.stringify(user));
+                    window.location.href = "index.html";
+                } else {
+                    throw new Error("No user data received");
+                }
+            } catch (e) {
+                alert("Login failed. Please try again.");
+                window.location.href = "index.html";
             }
         }
         
-        // Open Telegram app for login
-        function loginWithTelegram() {
-            const botId = "7666230446";
-            const returnUrl = encodeURIComponent("https://claimpx.netlify.app/auth.html");
-            
-            // Deep link to Telegram app
-            window.location.href = `tg://resolve?domain=oauth&bot_id=${botId}&origin=${returnUrl}`;
-            
-            // Fallback for browsers that don't support deep linking
-            setTimeout(() => {
-                window.location.href = `https://oauth.telegram.org/auth?bot_id=${botId}&origin=${returnUrl}`;
-            }, 500);
-        }
-        
-        // Logout function
-        function logout() {
-            localStorage.removeItem('telegram_user');
-            checkAuth();
-        }
-        
-        // Initialize on page load
-        window.onload = checkAuth;
+        window.onload = processAuth;
     </script>
+</head>
+<body>
+    <p>Completing Telegram login...</p>
 </body>
 </html>
