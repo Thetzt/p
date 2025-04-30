@@ -92,10 +92,16 @@
             if (userData) {
                 try {
                     const user = JSON.parse(decodeURIComponent(userData));
-                    // Fix photo_url format if needed
-                    if (user.photo_url && !user.photo_url.startsWith('http')) {
-                        user.photo_url = `https://api.telegram.org/file/bot7666230446:AAHyavRyTRP6n0703ZxZg-Q4q_FI6LlAizs/${user.photo_url}`;
+                    
+                    // Ensure photo_url is properly formatted
+                    if (user.photo_url) {
+                        if (!user.photo_url.startsWith('http')) {
+                            user.photo_url = `https://api.telegram.org/file/bot7666230446:AAHyavRyTRP6n0703ZxZg-Q4q_FI6LlAizs/${user.photo_url}`;
+                        }
+                        // Add cache busting to prevent cached errors
+                        user.photo_url += (user.photo_url.includes('?') ? '&' : '?') + 't=' + Date.now();
                     }
+                    
                     localStorage.setItem('tg_user', JSON.stringify(user));
                     showUserProfile(user);
                     window.history.replaceState({}, '', window.location.pathname);
@@ -105,12 +111,7 @@
                 }
             } else {
                 const savedUser = localStorage.getItem('tg_user');
-                if (savedUser) {
-                    const user = JSON.parse(savedUser);
-                    showUserProfile(user);
-                } else {
-                    showLoginButton();
-                }
+                savedUser ? showUserProfile(JSON.parse(savedUser)) : showLoginButton();
             }
         }
         
@@ -121,7 +122,7 @@
                 <div class="profile-card">
                     ${user.photo_url 
                         ? `<img src="${user.photo_url}" class="avatar" alt="Profile" 
-                           onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\\'default-avatar\\'>${initials}</div>'">` 
+                           onerror="handleImageError(this, '${initials}')">` 
                         : `<div class="default-avatar">${initials}</div>`
                     }
                     <h2>${user.first_name || 'Telegram'} ${user.last_name || ''}</h2>
@@ -129,6 +130,11 @@
                     <button class="logout-btn" onclick="logout()">Log Out</button>
                 </div>
             `;
+        }
+        
+        function handleImageError(img, initials) {
+            img.onerror = null;
+            img.parentNode.innerHTML = `<div class="default-avatar">${initials}</div>`;
         }
         
         function showLoginButton() {
