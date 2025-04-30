@@ -4,64 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authentication Status</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f7fa;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-        .auth-card {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        }
-        .status-icon {
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
-        .success {
-            color: #2ecc71;
-        }
-        .error {
-            color: #e74c3c;
-        }
-        .loading {
-            color: #3498db;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            margin-top: 20px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .error-details {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 6px;
-            margin-top: 20px;
-            font-size: 14px;
-            text-align: left;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="auth-card" id="status-card">
@@ -88,7 +31,7 @@
                 }
                 
                 // Store session
-                localStorage.setItem('tg_auth', JSON.stringify(userData));
+                localStorage.setItem('tg_user_data', JSON.stringify(userData));
                 
                 // Show success
                 statusCard.innerHTML = `
@@ -97,8 +40,9 @@
                     <p>You'll be redirected shortly...</p>
                 `;
                 
+                // Redirect to main page with user data
                 setTimeout(() => {
-                    window.location.href = "index.html";
+                    window.location.href = `index.html?user=${encodeURIComponent(JSON.stringify(userData))}`;
                 }, 1500);
                 
             } catch (error) {
