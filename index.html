@@ -1,112 +1,266 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClaimPX - Bot Login</title>
+    <title>ClaimPX | Telegram Auth</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            max-width: 100%;
+        :root {
+            --tg-blue: #0088cc;
+            --tg-light: #f8f9fa;
+            --tg-dark: #17212b;
+            --tg-green: #2eab5d;
+            --tg-hover: #007ebd;
         }
         
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+        
+        body {
+            background-color: var(--tg-light);
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 100vw;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            color: var(--tg-dark);
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        /* Login Button */
         .tg-login-btn {
-            background: #0088cc;
+            background: var(--tg-blue);
             color: white;
             border: none;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-size: 16px;
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
             margin: 30px auto;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.16);
+            box-shadow: 0 4px 12px rgba(0, 136, 204, 0.25);
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
         
-        .tg-user-profile {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 10px;
+        .tg-login-btn:hover {
+            background: var(--tg-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 136, 204, 0.3);
+        }
+        
+        .tg-login-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* User Profile Card */
+        .profile-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin: 30px auto;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 15px;
+            border: 3px solid var(--tg-blue);
+        }
+        
+        .default-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--tg-blue);
+            color: white;
             display: flex;
             align-items: center;
-            gap: 15px;
-            margin: 20px auto;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            margin: 0 auto 15px;
+            border: 3px solid var(--tg-blue);
         }
         
-        .tg-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+        .user-name {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--tg-dark);
+        }
+        
+        .user-username {
+            color: var(--tg-blue);
+            margin-bottom: 15px;
+            font-size: 15px;
+        }
+        
+        .verified-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #e8f5e9;
+            color: var(--tg-green);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        
+        .logout-btn {
+            background: none;
+            border: 1px solid #ddd;
+            color: #666;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .logout-btn:hover {
+            background: #f5f5f5;
         }
     </style>
 </head>
 <body>
-    <div id="telegram-auth">
-        <!-- Will be filled by JavaScript -->
+    <div class="container">
+        <header>
+            <h1>Welcome to ClaimPX</h1>
+            <p class="description">Connect your Telegram account to get started</p>
+        </header>
+        
+        <div id="auth-container">
+            <!-- Content will be loaded dynamically -->
+        </div>
     </div>
 
     <script>
-        // 1. Check for existing session
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        // DOM Elements
+        const authContainer = document.getElementById('auth-container');
         
-        if (token) {
-            // Store the token and clear URL
-            localStorage.setItem('tg_bot_token', token);
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
+        // Check authentication state on load
+        document.addEventListener('DOMContentLoaded', checkAuthState);
         
-        // 2. Display appropriate UI
-        function updateUI() {
-            const container = document.getElementById('telegram-auth');
-            const storedToken = localStorage.getItem('tg_bot_token');
+        function checkAuthState() {
+            const userData = localStorage.getItem('tg_user_data');
             
-            if (storedToken) {
-                // Verify token with your bot (in a real app, you'd do server-side verification)
-                container.innerHTML = `
-                    <div class="tg-user-profile">
-                        <img class="tg-avatar" src="telegram-logo.png">
-                        <div>
-                            <strong>Verified with @uxxucc_bot</strong>
-                            <p>Token: ${storedToken.substring(0, 6)}...</p>
-                        </div>
-                    </div>
-                    <button onclick="logout()" style="margin-top:10px">Logout</button>
-                `;
+            if (userData) {
+                showUserProfile(JSON.parse(userData));
             } else {
-                // Show login button
-                container.innerHTML = `
-                    <button class="tg-login-btn" onclick="startBotAuth()">
-                        <img src="telegram-logo.png" width="24" height="24">
-                        Verify via @uxxucc_bot
-                    </button>
-                `;
+                showLoginButton();
             }
         }
         
-        // 3. Start authentication via your bot
-        function startBotAuth() {
-            // Generate a unique token (in production, generate this server-side)
-            const randomToken = Math.random().toString(36).substring(2, 15);
+        function showLoginButton() {
+            authContainer.innerHTML = `
+                <button class="tg-login-btn" onclick="startTelegramAuth()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="white" stroke-width="2"/>
+                        <path d="M8 13L12 11L16 8L12 17L10 11" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Continue with Telegram
+                </button>
+            `;
+        }
+        
+        function startTelegramAuth() {
+            // Generate a random token (in production, generate server-side)
+            const authToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
             
-            // Deep link to your bot with the token
-            window.location.href = `tg://resolve?domain=uxxucc_bot&start=${randomToken}`;
+            // Open Telegram app with deep link to your bot
+            window.location.href = `tg://resolve?domain=uxxucc_bot&start=${authToken}`;
             
-            // Fallback for desktop
+            // Fallback for desktop browsers
             setTimeout(() => {
-                window.location.href = `https://t.me/uxxucc_bot?start=${randomToken}`;
+                window.location.href = `https://t.me/uxxucc_bot?start=${authToken}`;
             }, 500);
         }
         
-        // 4. Logout
-        function logout() {
-            localStorage.removeItem('tg_bot_token');
-            updateUI();
+        function showUserProfile(user) {
+            const initials = user.first_name ? user.first_name.charAt(0) : 'T';
+            
+            authContainer.innerHTML = `
+                <div class="profile-card">
+                    ${user.photo_url ? 
+                        `<img src="${user.photo_url}" class="avatar" alt="Profile Photo">` : 
+                        `<div class="default-avatar">${initials}</div>`
+                    }
+                    
+                    <div class="verified-badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#2eab5d"/>
+                            <path d="M8 12L11 15L16 9" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Verified with @uxxucc_bot
+                    </div>
+                    
+                    <h2 class="user-name">${user.first_name || 'User'} ${user.last_name || ''}</h2>
+                    ${user.username ? `<div class="user-username">@${user.username}</div>` : ''}
+                    
+                    <button class="logout-btn" onclick="logout()">Log Out</button>
+                </div>
+            `;
         }
         
-        // Initialize
-        updateUI();
+        function logout() {
+            localStorage.removeItem('tg_user_data');
+            checkAuthState();
+        }
+        
+        // Check for callback data
+        const urlParams = new URLSearchParams(window.location.search);
+        const userData = urlParams.get('user');
+        
+        if (userData) {
+            try {
+                const parsedData = JSON.parse(decodeURIComponent(userData));
+                localStorage.setItem('tg_user_data', JSON.stringify(parsedData));
+                window.history.replaceState({}, document.title, window.location.pathname);
+                showUserProfile(parsedData);
+            } catch (e) {
+                console.error("Error parsing user data:", e);
+            }
+        }
     </script>
 </body>
 </html>
