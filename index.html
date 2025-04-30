@@ -35,6 +35,19 @@
             margin: 0 auto 15px;
             border: 3px solid #0088cc;
         }
+        .default-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #0088cc;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: bold;
+            margin: 0 auto 15px;
+        }
         .login-btn {
             background: #0088cc;
             color: white;
@@ -44,6 +57,9 @@
             font-size: 16px;
             cursor: pointer;
             margin-top: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
         .logout-btn {
             background: #e74c3c;
@@ -69,8 +85,8 @@
     <script>
         const authContainer = document.getElementById('auth-container');
         
-        // Check authentication on page load
-        function checkAuth() {
+        // Check authentication state
+        function checkAuthState() {
             const urlParams = new URLSearchParams(window.location.search);
             const userData = urlParams.get('user');
             
@@ -78,49 +94,64 @@
                 try {
                     const user = JSON.parse(decodeURIComponent(userData));
                     localStorage.setItem('tg_user', JSON.stringify(user));
-                    showProfile(user);
-                    // Clean URL
+                    showUserProfile(user);
+                    // Clean URL after auth
                     window.history.replaceState({}, '', window.location.pathname);
                 } catch (e) {
                     console.error("Error parsing user data:", e);
-                    showLogin();
+                    showLoginButton();
                 }
             } else {
                 const savedUser = localStorage.getItem('tg_user');
-                savedUser ? showProfile(JSON.parse(savedUser)) : showLogin();
+                savedUser ? showUserProfile(JSON.parse(savedUser)) : showLoginButton();
             }
         }
         
-        function showProfile(user) {
+        function showUserProfile(user) {
+            const initials = user.first_name ? user.first_name.charAt(0) : 'T';
+            
             authContainer.innerHTML = `
                 <div class="profile-card">
-                    <img src="${user.photo_url || 'https://via.placeholder.com/150?text=TG'}" 
-                         class="avatar" 
-                         alt="Profile Photo"
-                         onerror="this.src='https://via.placeholder.com/150?text=TG'">
+                    ${user.photo_url 
+                        ? `<img src="${user.photo_url}" class="avatar" alt="Profile">` 
+                        : `<div class="default-avatar">${initials}</div>`
+                    }
                     <h2>${user.first_name || 'Telegram'} ${user.last_name || ''}</h2>
                     ${user.username ? `<p>@${user.username}</p>` : ''}
                     <button class="logout-btn" onclick="logout()">Log Out</button>
                 </div>
             `;
+            
+            // If photo fails to load, show default avatar
+            const img = authContainer.querySelector('.avatar');
+            if (img) {
+                img.onerror = function() {
+                    this.src = '';
+                    this.parentNode.innerHTML = `<div class="default-avatar">${initials}</div>`;
+                };
+            }
         }
         
-        function showLogin() {
+        function showLoginButton() {
             authContainer.innerHTML = `
                 <button class="login-btn" onclick="loginWithTelegram()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="white" stroke-width="2"/>
+                        <path d="M8 13L12 11L16 8L12 17L10 11" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                     Continue with Telegram
                 </button>
             `;
         }
         
         function loginWithTelegram() {
-            // Generate a random token (in production, get from your backend)
+            // In production, get this token from your backend
             const token = "tg_" + Math.random().toString(36).substring(2, 10);
             
             // Try Telegram app first
             window.location.href = `tg://resolve?domain=uxxucc_bot&start=${token}`;
             
-            // Fallback for desktop
+            // Fallback for desktop browsers
             setTimeout(() => {
                 window.location.href = `https://t.me/uxxucc_bot?start=${token}`;
             }, 500);
@@ -128,11 +159,11 @@
         
         function logout() {
             localStorage.removeItem('tg_user');
-            showLogin();
+            showLoginButton();
         }
         
         // Initialize
-        document.addEventListener('DOMContentLoaded', checkAuth);
+        document.addEventListener('DOMContentLoaded', checkAuthState);
     </script>
 </body>
 </html>
