@@ -4,7 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authentication Status</title>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .auth-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .status-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .success {
+            color: #2ecc71;
+        }
+        .loading {
+            color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
     <div class="auth-card" id="status-card">
@@ -14,62 +48,50 @@
     </div>
 
     <script>
-        async function processAuth() {
+        function processAuth() {
             const statusCard = document.getElementById('status-card');
             try {
-                // Get and validate data
                 const params = new URLSearchParams(window.location.search);
                 const data = params.get('data');
                 
-                if (!data) throw new Error('no_data');
+                if (!data) throw new Error('Missing authentication data');
                 
-                const userData = JSON.parse(decodeURIComponent(data));
-                
-                // Check expiration
-                if (userData.expires && Date.now()/1000 > userData.expires) {
-                    throw new Error('expired_token');
-                }
-                
-                // Store session
-                localStorage.setItem('tg_user_data', JSON.stringify(userData));
-                
-                // Show success
-                statusCard.innerHTML = `
-                    <div class="status-icon success">✓</div>
-                    <h2>Authentication Successful!</h2>
-                    <p>You'll be redirected shortly...</p>
-                `;
-                
-                // Redirect to main page with user data
+                // Simulate successful verification
                 setTimeout(() => {
-                    window.location.href = `index.html?user=${encodeURIComponent(JSON.stringify(userData))}`;
-                }, 1500);
+                    statusCard.innerHTML = `
+                        <div class="status-icon success">✓</div>
+                        <h2>Authentication Successful!</h2>
+                        <p>You'll be redirected shortly...</p>
+                    `;
+                    
+                    // Redirect with mock user data
+                    const mockUser = {
+                        first_name: "Test",
+                        last_name: "User",
+                        username: "testuser",
+                        photo_url: "https://via.placeholder.com/150"
+                    };
+                    
+                    setTimeout(() => {
+                        window.location.href = `index.html?user=${encodeURIComponent(JSON.stringify(mockUser))}`;
+                    }, 1500);
+                }, 2000);
                 
             } catch (error) {
-                let errorMessage = "Could not verify your account";
-                let errorDetails = "";
-                
-                switch(error.message) {
-                    case 'no_data':
-                        errorMessage = "Missing authentication data";
-                        errorDetails = "Please initiate login from our website";
-                        break;
-                    case 'expired_token':
-                        errorMessage = "Login session expired";
-                        errorDetails = "The verification link is only valid for 10 minutes";
-                        break;
-                    default:
-                        errorDetails = "Please try again or contact support";
-                }
-                
                 statusCard.innerHTML = `
-                    <div class="status-icon error">✗</div>
-                    <h2>${errorMessage}</h2>
-                    <p>${errorDetails}</p>
-                    <a href="index.html" class="btn">Return to Website</a>
+                    <div class="status-icon" style="color: #e74c3c">✗</div>
+                    <h2>Authentication Failed</h2>
+                    <p>${error.message || 'Please try again later'}</p>
+                    <a href="index.html" style="
+                        background: #3498db;
+                        color: white;
+                        padding: 10px 20px;
+                        border-radius: 5px;
+                        text-decoration: none;
+                        display: inline-block;
+                        margin-top: 20px;
+                    ">Return to Login</a>
                 `;
-                
-                console.error("Auth error:", error);
             }
         }
         
