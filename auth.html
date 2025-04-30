@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Processing Telegram Login</title>
+    <script>
+        // Extract Telegram auth data from URL hash
+        function processAuth() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            
+            const userData = {
+                id: params.get('id'),
+                first_name: params.get('first_name'),
+                last_name: params.get('last_name'),
+                username: params.get('username'),
+                photo_url: params.get('photo_url'),
+                auth_date: params.get('auth_date'),
+                hash: params.get('hash')
+            };
+            
+            if (userData.id) {
+                // Store user data and redirect back
+                localStorage.setItem('telegram_user', JSON.stringify(userData));
+                window.location.href = "index.html";
+            } else {
+                // Failed login
+                alert("Telegram login failed");
+                window.location.href = "index.html";
+            }
+        }
+        
+        // Run on page load
+        window.onload = processAuth;
+    </script>
+</head>
+<body>
+    <p>Processing Telegram login...</p>
+</body>
+</html>
