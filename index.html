@@ -202,6 +202,79 @@
                 </button>
             `;
         }
+
+
+// Add this to your existing index.html
+function handleAuthErrors() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    
+    if (error) {
+        // Create error notification
+        const errorNotification = document.createElement('div');
+        errorNotification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 90%;
+            width: 400px;
+            display: flex;
+            align-items: center;
+            animation: slideIn 0.3s ease-out;
+        `;
+        
+        errorNotification.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-right: 12px;">
+                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#c62828" stroke-width="2"/>
+                <path d="M12 8V12" stroke="#c62828" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 16H12.01" stroke="#c62828" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div>
+                <strong>Authentication Error</strong>
+                <p style="margin: 4px 0 0; font-size: 14px;">${getErrorMessage(error)}</p>
+            </div>
+            <button onclick="this.parentNode.remove()" style="
+                background: none;
+                border: none;
+                color: #c62828;
+                margin-left: auto;
+                cursor: pointer;
+                font-size: 18px;
+            ">×</button>
+        `;
+        
+        document.body.appendChild(errorNotification);
+        
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+}
+
+function getErrorMessage(errorCode) {
+    const messages = {
+        'auth_failed': 'Could not verify your account. Please try again.',
+        'invalid_token': 'The authentication link expired or is invalid.',
+        'no_data': 'No authentication data received.',
+        'default': 'An unknown error occurred during authentication.'
+    };
+    return messages[errorCode] || messages['default'];
+}
+
+// Call this when page loads
+window.addEventListener('DOMContentLoaded', handleAuthErrors);
+
+
+
+
+
+
         
         function startTelegramAuth() {
             // Generate a random token (in production, generate server-side)
