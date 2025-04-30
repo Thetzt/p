@@ -1,201 +1,135 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Authentication Status</title>
     <style>
-        :root {
-            --primary: #0088cc;
-            --success: #2ecc71;
-            --error: #e74c3c;
-            --bg: #f8f9fa;
-            --text: #333;
-            --card-bg: #ffffff;
-        }
-        
         body {
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
-            color: var(--text);
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh;
             margin: 0;
             padding: 20px;
-            line-height: 1.6;
         }
-        
         .auth-card {
-            background: var(--card-bg);
+            background: white;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             padding: 30px;
             width: 100%;
             max-width: 400px;
             text-align: center;
-            animation: fadeIn 0.3s ease-out;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
         .status-icon {
-            font-size: 60px;
+            font-size: 48px;
             margin-bottom: 20px;
         }
-        
-        .success-icon {
-            color: var(--success);
+        .success {
+            color: #2ecc71;
         }
-        
-        .error-icon {
-            color: var(--error);
+        .error {
+            color: #e74c3c;
         }
-        
-        .loading-icon {
-            color: var(--primary);
+        .loading {
+            color: #3498db;
             animation: spin 1s linear infinite;
         }
-        
         @keyframes spin {
             100% { transform: rotate(360deg); }
         }
-        
-        h2 {
-            margin: 0 0 10px;
-            font-size: 22px;
-        }
-        
-        p {
-            margin: 0 0 20px;
-            color: #666;
-        }
-        
         .btn {
-            background: var(--primary);
+            background: #3498db;
             color: white;
             border: none;
             padding: 12px 24px;
-            border-radius: 8px;
+            border-radius: 6px;
             font-size: 16px;
-            font-weight: 500;
+            margin-top: 20px;
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
-            margin-top: 15px;
-            transition: all 0.2s;
         }
-        
-        .btn:hover {
-            background: #0077b3;
-            transform: translateY(-2px);
-        }
-        
         .error-details {
-            background: #f8f8f8;
+            background: #f8f9fa;
             padding: 12px;
             border-radius: 6px;
-            margin: 15px 0;
-            font-family: monospace;
-            font-size: 13px;
-            word-break: break-word;
+            margin-top: 20px;
+            font-size: 14px;
             text-align: left;
         }
     </style>
 </head>
 <body>
-    <div class="auth-card" id="auth-status">
-        <div class="status-icon loading-icon">↻</div>
+    <div class="auth-card" id="status-card">
+        <div class="status-icon loading">↻</div>
         <h2>Verifying Your Account</h2>
-        <p>Please wait while we authenticate your details...</p>
+        <p>Please wait while we authenticate your information...</p>
     </div>
 
     <script>
-        // DOM Elements
-        const authStatus = document.getElementById('auth-status');
-        
-        // Process authentication data
         async function processAuth() {
+            const statusCard = document.getElementById('status-card');
             try {
-                // 1. Get data from URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const encodedData = urlParams.get('data');
+                // Get and validate data
+                const params = new URLSearchParams(window.location.search);
+                const data = params.get('data');
                 
-                if (!encodedData) {
-                    throw new Error('No authentication data received');
+                if (!data) throw new Error('no_data');
+                
+                const userData = JSON.parse(decodeURIComponent(data));
+                
+                // Check expiration
+                if (userData.expires && Date.now()/1000 > userData.expires) {
+                    throw new Error('expired_token');
                 }
                 
-                // 2. Decode and parse data
-                const userData = JSON.parse(decodeURIComponent(encodedData));
+                // Store session
+                localStorage.setItem('tg_auth', JSON.stringify(userData));
                 
-                // 3. Validate required fields
-                const requiredFields = ['id', 'first_name', 'auth_token'];
-                for (const field of requiredFields) {
-                    if (!userData[field]) {
-                        throw new Error(`Missing required field: ${field}`);
-                    }
-                }
-                
-                // 4. Check token expiration (5 minutes)
-                const currentTime = Math.floor(Date.now() / 1000);
-                if (currentTime - (userData.auth_time || 0) > 300) {
-                    throw new Error('Authentication token expired');
-                }
-                
-                // 5. Store user data
-                localStorage.setItem('tg_user_data', JSON.stringify(userData));
-                
-                // 6. Show success and redirect
-                showStatus(
-                    '✓',
-                    'success-icon',
-                    'Authentication Successful!',
-                    'You will be redirected shortly...'
-                );
+                // Show success
+                statusCard.innerHTML = `
+                    <div class="status-icon success">✓</div>
+                    <h2>Authentication Successful!</h2>
+                    <p>You'll be redirected shortly...</p>
+                `;
                 
                 setTimeout(() => {
-                    window.location.href = 'index.html';
+                    window.location.href = "index.html";
                 }, 1500);
                 
             } catch (error) {
-                console.error('Authentication error:', error);
+                let errorMessage = "Could not verify your account";
+                let errorDetails = "";
                 
-                // Show error message
-                showStatus(
-                    '✗',
-                    'error-icon',
-                    'Authentication Failed',
-                    error.message || 'An unknown error occurred'
-                );
+                switch(error.message) {
+                    case 'no_data':
+                        errorMessage = "Missing authentication data";
+                        errorDetails = "Please initiate login from our website";
+                        break;
+                    case 'expired_token':
+                        errorMessage = "Login session expired";
+                        errorDetails = "The verification link is only valid for 10 minutes";
+                        break;
+                    default:
+                        errorDetails = "Please try again or contact support";
+                }
                 
-                // Add return button
-                authStatus.innerHTML += `
+                statusCard.innerHTML = `
+                    <div class="status-icon error">✗</div>
+                    <h2>${errorMessage}</h2>
+                    <p>${errorDetails}</p>
                     <a href="index.html" class="btn">Return to Website</a>
                 `;
                 
-                // Send error to analytics if available
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'auth_error', {
-                        'error': error.message
-                    });
-                }
+                console.error("Auth error:", error);
             }
         }
         
-        function showStatus(icon, iconClass, title, message) {
-            authStatus.innerHTML = `
-                <div class="status-icon ${iconClass}">${icon}</div>
-                <h2>${title}</h2>
-                <p>${message}</p>
-            `;
-        }
-        
-        // Start processing when page loads
-        window.addEventListener('DOMContentLoaded', processAuth);
+        window.onload = processAuth;
     </script>
 </body>
 </html>
