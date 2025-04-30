@@ -1,80 +1,201 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authentication Complete</title>
+    <title>Authentication Status</title>
     <style>
+        :root {
+            --primary: #0088cc;
+            --success: #2ecc71;
+            --error: #e74c3c;
+            --bg: #f8f9fa;
+            --text: #333;
+            --card-bg: #ffffff;
+        }
+        
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            background-color: #f5f5f5;
+            min-height: 100vh;
             margin: 0;
             padding: 20px;
+            line-height: 1.6;
         }
         
-        .message {
-            text-align: center;
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
+        .auth-card {
+            background: var(--card-bg);
+            border-radius: 12px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            width: 100%;
             max-width: 400px;
+            text-align: center;
+            animation: fadeIn 0.3s ease-out;
         }
         
-        .spinner {
-            border: 4px solid rgba(0, 136, 204, 0.2);
-            border-radius: 50%;
-            border-top: 4px solid #0088cc;
-            width: 40px;
-            height: 40px;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .status-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        
+        .success-icon {
+            color: var(--success);
+        }
+        
+        .error-icon {
+            color: var(--error);
+        }
+        
+        .loading-icon {
+            color: var(--primary);
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
         }
         
         @keyframes spin {
-            0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        h2 {
+            margin: 0 0 10px;
+            font-size: 22px;
+        }
+        
+        p {
+            margin: 0 0 20px;
+            color: #666;
+        }
+        
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 15px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #0077b3;
+            transform: translateY(-2px);
+        }
+        
+        .error-details {
+            background: #f8f8f8;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 13px;
+            word-break: break-word;
+            text-align: left;
         }
     </style>
 </head>
 <body>
-    <div class="message">
-        <div class="spinner"></div>
-        <h2>Authentication Successful</h2>
-        <p>Returning to ClaimPX...</p>
+    <div class="auth-card" id="auth-status">
+        <div class="status-icon loading-icon">↻</div>
+        <h2>Verifying Your Account</h2>
+        <p>Please wait while we authenticate your details...</p>
     </div>
 
     <script>
-        // Process Telegram callback data
-        function processAuth() {
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            
-            const userData = {
-                id: params.get('id'),
-                first_name: params.get('first_name'),
-                last_name: params.get('last_name'),
-                username: params.get('username'),
-                photo_url: params.get('photo_url'),
-                auth_date: params.get('auth_date'),
-                hash: params.get('hash')
-            };
-            
-            if (userData.id) {
-                // Redirect back with user data
-                window.location.href = `index.html?user=${encodeURIComponent(JSON.stringify(userData))}`;
-            } else {
-                alert("Authentication failed. Please try again.");
-                window.location.href = "index.html";
+        // DOM Elements
+        const authStatus = document.getElementById('auth-status');
+        
+        // Process authentication data
+        async function processAuth() {
+            try {
+                // 1. Get data from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const encodedData = urlParams.get('data');
+                
+                if (!encodedData) {
+                    throw new Error('No authentication data received');
+                }
+                
+                // 2. Decode and parse data
+                const userData = JSON.parse(decodeURIComponent(encodedData));
+                
+                // 3. Validate required fields
+                const requiredFields = ['id', 'first_name', 'auth_token'];
+                for (const field of requiredFields) {
+                    if (!userData[field]) {
+                        throw new Error(`Missing required field: ${field}`);
+                    }
+                }
+                
+                // 4. Check token expiration (5 minutes)
+                const currentTime = Math.floor(Date.now() / 1000);
+                if (currentTime - (userData.auth_time || 0) > 300) {
+                    throw new Error('Authentication token expired');
+                }
+                
+                // 5. Store user data
+                localStorage.setItem('tg_user_data', JSON.stringify(userData));
+                
+                // 6. Show success and redirect
+                showStatus(
+                    '✓',
+                    'success-icon',
+                    'Authentication Successful!',
+                    'You will be redirected shortly...'
+                );
+                
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Authentication error:', error);
+                
+                // Show error message
+                showStatus(
+                    '✗',
+                    'error-icon',
+                    'Authentication Failed',
+                    error.message || 'An unknown error occurred'
+                );
+                
+                // Add return button
+                authStatus.innerHTML += `
+                    <a href="index.html" class="btn">Return to Website</a>
+                `;
+                
+                // Send error to analytics if available
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'auth_error', {
+                        'error': error.message
+                    });
+                }
             }
         }
         
-        // Start processing on page load
-        window.onload = processAuth;
+        function showStatus(icon, iconClass, title, message) {
+            authStatus.innerHTML = `
+                <div class="status-icon ${iconClass}">${icon}</div>
+                <h2>${title}</h2>
+                <p>${message}</p>
+            `;
+        }
+        
+        // Start processing when page loads
+        window.addEventListener('DOMContentLoaded', processAuth);
     </script>
 </body>
 </html>
