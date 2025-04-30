@@ -1,40 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Login</title>
+    <title>Verification</title>
     <script>
-        function processAuth() {
-            try {
-                const hash = window.location.hash.substring(1);
-                const params = new URLSearchParams(hash);
-                
-                const user = {
-                    id: params.get('id'),
-                    first_name: params.get('first_name'),
-                    last_name: params.get('last_name'),
-                    username: params.get('username'),
-                    photo_url: params.get('photo_url'),
-                    auth_date: params.get('auth_date'),
-                    hash: params.get('hash')
-                };
-                
-                if (user.id) {
-                    localStorage.setItem('telegram_user', JSON.stringify(user));
-                    window.location.href = "index.html";
-                } else {
-                    throw new Error("No user data received");
-                }
-            } catch (e) {
-                alert("Login failed. Please try again.");
-                window.location.href = "index.html";
-            }
-        }
+        // Extract token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
         
-        window.onload = processAuth;
+        if (token) {
+            localStorage.setItem('tg_bot_token', token);
+            window.location.href = "index.html";
+        } else {
+            alert("No verification token received");
+            window.location.href = "index.html";
+        }
     </script>
 </head>
 <body>
-    <p>Completing Telegram login...</p>
+    <p>Verifying with @uxxucc_bot...</p>
 </body>
 </html>
