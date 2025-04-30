@@ -1,22 +1,80 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Verification</title>
-    <script>
-        // Extract token from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        
-        if (token) {
-            localStorage.setItem('tg_bot_token', token);
-            window.location.href = "index.html";
-        } else {
-            alert("No verification token received");
-            window.location.href = "index.html";
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Complete</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
         }
-    </script>
+        
+        .message {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            max-width: 400px;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 136, 204, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #0088cc;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-    <p>Verifying with @uxxucc_bot...</p>
+    <div class="message">
+        <div class="spinner"></div>
+        <h2>Authentication Successful</h2>
+        <p>Returning to ClaimPX...</p>
+    </div>
+
+    <script>
+        // Process Telegram callback data
+        function processAuth() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            
+            const userData = {
+                id: params.get('id'),
+                first_name: params.get('first_name'),
+                last_name: params.get('last_name'),
+                username: params.get('username'),
+                photo_url: params.get('photo_url'),
+                auth_date: params.get('auth_date'),
+                hash: params.get('hash')
+            };
+            
+            if (userData.id) {
+                // Redirect back with user data
+                window.location.href = `index.html?user=${encodeURIComponent(JSON.stringify(userData))}`;
+            } else {
+                alert("Authentication failed. Please try again.");
+                window.location.href = "index.html";
+            }
+        }
+        
+        // Start processing on page load
+        window.onload = processAuth;
+    </script>
 </body>
 </html>
