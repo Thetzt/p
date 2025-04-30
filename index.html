@@ -85,7 +85,6 @@
     <script>
         const authContainer = document.getElementById('auth-container');
         
-        // Check authentication state
         function checkAuthState() {
             const urlParams = new URLSearchParams(window.location.search);
             const userData = urlParams.get('user');
@@ -93,9 +92,12 @@
             if (userData) {
                 try {
                     const user = JSON.parse(decodeURIComponent(userData));
+                    // Fix photo_url format if needed
+                    if (user.photo_url && !user.photo_url.startsWith('http')) {
+                        user.photo_url = `https://api.telegram.org/file/bot7666230446:AAHyavRyTRP6n0703ZxZg-Q4q_FI6LlAizs/${user.photo_url}`;
+                    }
                     localStorage.setItem('tg_user', JSON.stringify(user));
                     showUserProfile(user);
-                    // Clean URL after auth
                     window.history.replaceState({}, '', window.location.pathname);
                 } catch (e) {
                     console.error("Error parsing user data:", e);
@@ -103,7 +105,12 @@
                 }
             } else {
                 const savedUser = localStorage.getItem('tg_user');
-                savedUser ? showUserProfile(JSON.parse(savedUser)) : showLoginButton();
+                if (savedUser) {
+                    const user = JSON.parse(savedUser);
+                    showUserProfile(user);
+                } else {
+                    showLoginButton();
+                }
             }
         }
         
@@ -113,7 +120,8 @@
             authContainer.innerHTML = `
                 <div class="profile-card">
                     ${user.photo_url 
-                        ? `<img src="${user.photo_url}" class="avatar" alt="Profile">` 
+                        ? `<img src="${user.photo_url}" class="avatar" alt="Profile" 
+                           onerror="this.onerror=null;this.parentNode.innerHTML='<div class=\\'default-avatar\\'>${initials}</div>'">` 
                         : `<div class="default-avatar">${initials}</div>`
                     }
                     <h2>${user.first_name || 'Telegram'} ${user.last_name || ''}</h2>
@@ -121,15 +129,6 @@
                     <button class="logout-btn" onclick="logout()">Log Out</button>
                 </div>
             `;
-            
-            // If photo fails to load, show default avatar
-            const img = authContainer.querySelector('.avatar');
-            if (img) {
-                img.onerror = function() {
-                    this.src = '';
-                    this.parentNode.innerHTML = `<div class="default-avatar">${initials}</div>`;
-                };
-            }
         }
         
         function showLoginButton() {
@@ -145,13 +144,8 @@
         }
         
         function loginWithTelegram() {
-            // In production, get this token from your backend
             const token = "tg_" + Math.random().toString(36).substring(2, 10);
-            
-            // Try Telegram app first
             window.location.href = `tg://resolve?domain=uxxucc_bot&start=${token}`;
-            
-            // Fallback for desktop browsers
             setTimeout(() => {
                 window.location.href = `https://t.me/uxxucc_bot?start=${token}`;
             }, 500);
@@ -162,7 +156,6 @@
             showLoginButton();
         }
         
-        // Initialize
         document.addEventListener('DOMContentLoaded', checkAuthState);
     </script>
 </body>
