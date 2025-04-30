@@ -175,6 +175,59 @@
     </div>
 
     <script>
+
+
+
+// Display any authentication errors from URL
+function showAuthErrors() {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    
+    if (!error) return;
+    
+    const errorMessages = {
+        'auth_failed': 'Could not verify your account. Please try again.',
+        'expired': 'Your session expired. Please log in again.',
+        'invalid': 'Invalid authentication request.',
+        'system': 'Temporary system issue. Please try again later.'
+    };
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffebee;
+        color: #c62828;
+        padding: 15px 25px;
+        border-radius: 8px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+        max-width: 90%;
+        animation: fadeIn 0.3s ease-out;
+    `;
+    
+    errorDiv.innerHTML = `
+        <strong>⚠️ Authentication Error</strong>
+        <p style="margin:5px 0 0;">${errorMessages[error] || errorMessages['auth_failed']}</p>
+        <button onclick="this.parentNode.remove()" style="
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+        ">×</button>
+    `;
+    
+    document.body.appendChild(errorDiv);
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+// Call this when page loads
+document.addEventListener('DOMContentLoaded', showAuthErrors);
         // DOM Elements
         const authContainer = document.getElementById('auth-container');
         
