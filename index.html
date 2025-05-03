@@ -222,6 +222,17 @@
             padding-bottom: 8px;
         }
         
+        .public-badge {
+            display: inline-block;
+            background: rgba(136, 211, 206, 0.2);
+            color: var(--secondary);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
         @media (max-width: 600px) {
             .container {
                 padding: 15px;
@@ -263,17 +274,20 @@
                 </div>
             </div>
             
-            <div class="section-title">Recent Activity</div>
+            <div class="section-title">
+                Recent Activity 
+                <span class="public-badge">Public</span>
+            </div>
             <div id="activityFeed">
-                <!-- Example activity item (will be replaced with real data) -->
+                <!-- Example activity item -->
                 <div class="activity-item">
                     <div class="activity-title">Tokens Sent</div>
                     <div class="activity-details">
-                        May 4, 02:12 AM<br>
-                        <a href="https://explorer.monad.xyz/tx/0x..." target="_blank" class="activity-address">0.1 MON sent to 0x6c1a...c643</a>
+                        May 4, 02:52 AM<br>
+                        <a href="#" class="activity-address">0.1 MON sent to 0x6c...b643</a>
                     </div>
                 </div>
-                <p style="color: rgba(255,255,255,0.5);">Loading recent activity...</p>
+                <p style="color: rgba(255,255,255,0.5);">Loading public transactions...</p>
             </div>
             
             <div class="footer">
@@ -283,10 +297,8 @@
         </div>
     </div>
 
-    <!-- Load ethers.js from CDN with local fallback -->
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
     <script>
-        // Local fallback if CDN fails
         if (typeof ethers === 'undefined') {
             document.write('<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"><\/script>');
         }
@@ -297,21 +309,20 @@
             privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
             rpcUrl: 'https://testnet-rpc.monad.xyz',
             chainId: 10143,
-            faucetAmount: '0.1', // MON tokens per request
+            faucetAmount: '0.1',
             dailyLimit: 2,
-            explorerUrl: 'https://testnet.monadexplorer.com/'
+            explorerUrl: 'https://explorer.monad.xyz'
         };
 
-        // Transaction history (shared for all users)
-        let transactionHistory = JSON.parse(localStorage.getItem('monadFaucetTransactions')) || [];
+        // Public transaction history (visible to all users)
+        let publicTransactions = JSON.parse(localStorage.getItem('monadPublicTransactions')) || [];
         
-        // User request tracking (per user)
-        let userRequests = JSON.parse(localStorage.getItem('monadFaucetUserRequests')) || {};
+        // User-specific request tracking
+        let userRequests = JSON.parse(localStorage.getItem('monadUserRequests')) || {};
         
         // Timeout for hiding output
         let outputTimeout;
 
-        // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', async function() {
             const addressInput = document.getElementById('address');
             const requestButton = document.getElementById('requestButton');
@@ -331,15 +342,16 @@
                 
                 wallet = new ethers.Wallet(config.privateKey, provider);
                 
-                // Update UI
+                // Load initial data
                 updateRequestStatus();
-                renderActivityFeed();
+                renderPublicActivityFeed();
                 requestButton.disabled = false;
                 requestButton.textContent = 'Request 0.1 MON';
                 
             } catch (error) {
                 console.error('Initialization error:', error);
                 requestButton.textContent = 'Initialization Failed';
+                showOutput('Failed to connect to blockchain', 'error');
                 return;
             }
 
@@ -347,13 +359,12 @@
             requestButton.addEventListener('click', async function() {
                 const address = addressInput.value.trim();
                 
-                // Case 1: No address entered
+                // Validation
                 if (!address) {
                     showOutput('Please enter your MON address (0x...)', 'error');
                     return;
                 }
                 
-                // Case 2: Invalid address format
                 if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
                     showOutput('Invalid MON address. Please enter again', 'error');
                     return;
@@ -365,12 +376,10 @@
                 const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
                 
                 if (userTodayRequests.date !== today) {
-                    // Reset counter for new day
                     userTodayRequests.date = today;
                     userTodayRequests.count = 0;
                 }
                 
-                // Case 3: Daily limit reached
                 if (userTodayRequests.count >= config.dailyLimit) {
                     showOutput('Today Limit Reached, try again after Tomorrow', 'error');
                     return;
@@ -381,13 +390,13 @@
                 showOutput(`Sending 0.1 MON to ${address}`, 'info');
                 
                 try {
-                    // Prepare and send transaction
+                    // Send transaction
                     const tx = await wallet.sendTransaction({
                         to: address,
                         value: ethers.utils.parseEther(config.faucetAmount)
                     });
                     
-                    // Record the transaction
+                    // Create transaction record
                     const txRecord = {
                         hash: tx.hash,
                         to: address,
@@ -395,28 +404,25 @@
                         timestamp: new Date().toISOString()
                     };
                     
-                    // Update transaction history (keep only last 50)
-                    transactionHistory.unshift(txRecord);
-                    if (transactionHistory.length > 50) {
-                        transactionHistory = transactionHistory.slice(0, 50);
+                    // Update public transactions (visible to all)
+                    publicTransactions.unshift(txRecord);
+                    if (publicTransactions.length > 50) {
+                        publicTransactions = publicTransactions.slice(0, 50);
                     }
-                    localStorage.setItem('monadFaucetTransactions', JSON.stringify(transactionHistory));
+                    localStorage.setItem('monadPublicTransactions', JSON.stringify(publicTransactions));
                     
-                    // Update user request count
+                    // Update user-specific count
                     userTodayRequests.count++;
                     userRequests[userKey] = userTodayRequests;
-                    localStorage.setItem('monadFaucetUserRequests', JSON.stringify(userRequests));
+                    localStorage.setItem('monadUserRequests', JSON.stringify(userRequests));
                     
                     // Update UI
                     updateRequestStatus();
-                    renderActivityFeed();
-                    
-                    // Case 4: Success
+                    renderPublicActivityFeed();
                     showOutput('Successful request Faucet 0.1 MON', 'success');
                     
                 } catch (error) {
                     console.error('Transaction error:', error);
-                    // Case 5: Transaction failed
                     let errorMsg = 'Transaction failed. Please try again.';
                     if (error.message.includes('insufficient funds')) {
                         errorMsg = 'Faucet has insufficient funds.';
@@ -446,7 +452,6 @@
                 const today = new Date().toDateString();
                 const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
                 
-                // Reset if it's a new day
                 if (userTodayRequests.date !== today) {
                     userTodayRequests.date = today;
                     userTodayRequests.count = 0;
@@ -464,21 +469,21 @@
                 }
             }
             
-            // Render activity feed with clickable links
-            function renderActivityFeed() {
+            // Render public activity feed
+            function renderPublicActivityFeed() {
+                const activityFeed = document.getElementById('activityFeed');
                 activityFeed.innerHTML = '';
                 
-                if (transactionHistory.length === 0) {
-                    activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No recent activity</p>';
+                if (publicTransactions.length === 0) {
+                    activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No public transactions yet</p>';
                     return;
                 }
                 
-                transactionHistory.forEach(tx => {
+                publicTransactions.forEach(tx => {
                     const date = new Date(tx.timestamp);
                     const dateStr = date.toLocaleDateString('en-US', { 
                         month: 'short', 
-                        day: 'numeric', 
-                        year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                        day: 'numeric'
                     });
                     
                     const timeStr = date.toLocaleTimeString('en-US', { 
@@ -487,8 +492,7 @@
                         hour12: true 
                     }).toUpperCase();
                     
-                    const address = tx.to;
-                    const shortAddress = `${address.substring(0, 4)}...${address.substring(address.length - 4)}`;
+                    const shortAddress = `${tx.to.substring(0, 4)}...${tx.to.substring(tx.to.length - 4)}`;
                     
                     const activityItem = document.createElement('div');
                     activityItem.className = 'activity-item';
@@ -510,12 +514,10 @@
             function showOutput(message, type) {
                 const outputData = document.getElementById('outputData');
                 
-                // Clear previous timeout if exists
                 if (outputTimeout) {
                     clearTimeout(outputTimeout);
                 }
                 
-                // Set message and style
                 outputData.textContent = message;
                 outputData.className = 'output-data';
                 
@@ -525,10 +527,7 @@
                     outputData.classList.add('output-success');
                 }
                 
-                // Show the output
                 outputData.style.display = 'block';
-                
-                // Hide after 7 seconds
                 outputTimeout = setTimeout(() => {
                     outputData.style.display = 'none';
                 }, 7000);
@@ -536,9 +535,6 @@
             
             // Update status when address changes
             addressInput.addEventListener('input', updateRequestStatus);
-            
-            // Initial render
-            renderActivityFeed();
         });
     </script>
 </body>
