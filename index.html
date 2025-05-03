@@ -185,24 +185,25 @@
             margin-left: 8px;
         }
         
-        .status-message {
-            padding: 12px;
+        .output-data {
+            background: rgba(0, 0, 0, 0.2);
             border-radius: 8px;
-            margin: 0 0 15px 0;
-            display: none;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid var(--primary);
+            font-family: monospace;
             font-size: 0.9rem;
+            color: var(--light);
+            word-break: break-all;
+            display: none;
         }
         
-        .status-error {
-            background-color: rgba(244, 67, 54, 0.2);
-            border-left: 3px solid var(--error);
-            display: block;
+        .output-error {
+            border-left-color: var(--error);
         }
         
-        .status-success {
-            background-color: rgba(76, 175, 80, 0.2);
-            border-left: 3px solid var(--success);
-            display: block;
+        .output-success {
+            border-left-color: var(--success);
         }
         
         .section-title {
@@ -233,8 +234,8 @@
             
             <button id="requestButton">Request 0.1 MON</button>
             
-            <!-- Status message will appear here -->
-            <div id="statusMessage" class="status-message"></div>
+            <!-- Output Data Section -->
+            <div class="output-data" id="outputData"></div>
             
             <div class="status-card" id="statusCard">
                 <div class="status-row">
@@ -291,18 +292,20 @@
         
         // User request tracking
         let userRequests = JSON.parse(localStorage.getItem('monadFaucetUserRequests')) || {};
+        
+        // Timeout for hiding output
+        let outputTimeout;
 
         // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', async function() {
             const addressInput = document.getElementById('address');
             const requestButton = document.getElementById('requestButton');
             const activityFeed = document.getElementById('activityFeed');
-            const statusMessage = document.getElementById('statusMessage');
+            const outputData = document.getElementById('outputData');
             
             // Initialize provider and wallet
             let provider, wallet;
             try {
-                // Show loading state
                 requestButton.disabled = true;
                 requestButton.textContent = 'Initializing...';
                 
@@ -312,7 +315,6 @@
                 });
                 
                 wallet = new ethers.Wallet(config.privateKey, provider);
-                console.log('Faucet address:', wallet.address);
                 
                 // Update UI
                 updateRequestStatus();
@@ -323,24 +325,22 @@
             } catch (error) {
                 console.error('Initialization error:', error);
                 requestButton.textContent = 'Initialization Failed';
-                showStatusMessage('Failed to connect to blockchain. Please try again later.', 'error');
                 return;
             }
 
             // Request faucet handler
             requestButton.addEventListener('click', async function() {
                 const address = addressInput.value.trim();
-                clearStatusMessage();
                 
                 // Case 1: No address entered
                 if (!address) {
-                    showStatusMessage('Please enter your MON address (0x...)', 'error');
+                    showOutput('Please enter your MON address (0x...)', 'error');
                     return;
                 }
                 
                 // Case 2: Invalid address format
                 if (!address.match(/^0x[a-fA-F0-9]{40}$/)) {
-                    showStatusMessage('Invalid EVM address format. Please enter a valid address (0x...)', 'error');
+                    showOutput('Invalid MON address. Please enter again', 'error');
                     return;
                 }
                 
@@ -357,12 +357,13 @@
                 
                 // Case 3: Daily limit reached
                 if (userTodayRequests.count >= config.dailyLimit) {
-                    showStatusMessage(`Daily limit reached (${config.dailyLimit} requests per day). Try again tomorrow.`, 'error');
+                    showOutput('Today Limit Reached, try again after Tomorrow', 'error');
                     return;
                 }
                 
                 requestButton.disabled = true;
                 requestButton.textContent = 'Processing...';
+                showOutput(`Sending 0.1 MON to ${address}`, 'info');
                 
                 try {
                     // Prepare and send transaction
@@ -396,8 +397,7 @@
                     renderActivityFeed();
                     
                     // Case 4: Success
-                    const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-                    showStatusMessage(`Success! 0.1 MON sent to ${shortAddress}`, 'success');
+                    showOutput('Successful request Faucet 0.1 MON', 'success');
                     
                 } catch (error) {
                     console.error('Transaction error:', error);
@@ -408,7 +408,7 @@
                     } else if (error.message.includes('underpriced')) {
                         errorMsg = 'Network congestion. Please try again.';
                     }
-                    showStatusMessage(errorMsg, 'error');
+                    showOutput(errorMsg, 'error');
                 } finally {
                     requestButton.disabled = false;
                     requestButton.textContent = 'Request 0.1 MON';
@@ -488,22 +488,32 @@
                 });
             }
             
-            // Show status message
-            function showStatusMessage(message, type) {
-                statusMessage.textContent = message;
-                statusMessage.className = `status-message status-${type}`;
+            // Show output message
+            function showOutput(message, type) {
+                const outputData = document.getElementById('outputData');
                 
-                // Auto-hide after 5 seconds (except for success messages)
-                if (type !== 'success') {
-                    setTimeout(clearStatusMessage, 5000);
+                // Clear previous timeout if exists
+                if (outputTimeout) {
+                    clearTimeout(outputTimeout);
                 }
-            }
-            
-            // Clear status message
-            function clearStatusMessage() {
-                statusMessage.textContent = '';
-                statusMessage.className = 'status-message';
-                statusMessage.style.display = 'none';
+                
+                // Set message and style
+                outputData.textContent = message;
+                outputData.className = 'output-data';
+                
+                if (type === 'error') {
+                    outputData.classList.add('output-error');
+                } else if (type === 'success') {
+                    outputData.classList.add('output-success');
+                }
+                
+                // Show the output
+                outputData.style.display = 'block';
+                
+                // Hide after 7 seconds
+                outputTimeout = setTimeout(() => {
+                    outputData.style.display = 'none';
+                }, 4000);
             }
             
             // Update status when address changes
