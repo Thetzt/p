@@ -164,6 +164,13 @@
         
         .activity-address {
             font-family: monospace;
+            color: var(--secondary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .activity-address:hover {
+            text-decoration: underline;
         }
         
         .footer {
@@ -258,8 +265,15 @@
             
             <div class="section-title">Recent Activity</div>
             <div id="activityFeed">
-                <!-- Activity items will be added here dynamically -->
-                <p style="color: rgba(255,255,255,0.5);">No recent activity</p>
+                <!-- Example activity item (will be replaced with real data) -->
+                <div class="activity-item">
+                    <div class="activity-title">Tokens Sent</div>
+                    <div class="activity-details">
+                        May 4, 02:12 AM<br>
+                        <a href="https://explorer.monad.xyz/tx/0x..." target="_blank" class="activity-address">0.1 MON sent to 0x6c1a...c643</a>
+                    </div>
+                </div>
+                <p style="color: rgba(255,255,255,0.5);">Loading recent activity...</p>
             </div>
             
             <div class="footer">
@@ -284,13 +298,14 @@
             rpcUrl: 'https://testnet-rpc.monad.xyz',
             chainId: 10143,
             faucetAmount: '0.1', // MON tokens per request
-            dailyLimit: 2
+            dailyLimit: 2,
+            explorerUrl: 'https://explorer.monad.xyz'
         };
 
-        // Transaction history
+        // Transaction history (shared for all users)
         let transactionHistory = JSON.parse(localStorage.getItem('monadFaucetTransactions')) || [];
         
-        // User request tracking
+        // User request tracking (per user)
         let userRequests = JSON.parse(localStorage.getItem('monadFaucetUserRequests')) || {};
         
         // Timeout for hiding output
@@ -449,7 +464,7 @@
                 }
             }
             
-            // Render activity feed
+            // Render activity feed with clickable links
             function renderActivityFeed() {
                 activityFeed.innerHTML = '';
                 
@@ -468,11 +483,12 @@
                     
                     const timeStr = date.toLocaleTimeString('en-US', { 
                         hour: '2-digit', 
-                        minute: '2-digit' 
-                    });
+                        minute: '2-digit',
+                        hour12: true 
+                    }).toUpperCase();
                     
                     const address = tx.to;
-                    const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+                    const shortAddress = `${address.substring(0, 4)}...${address.substring(address.length - 4)}`;
                     
                     const activityItem = document.createElement('div');
                     activityItem.className = 'activity-item';
@@ -480,7 +496,9 @@
                         <div class="activity-title">Tokens Sent</div>
                         <div class="activity-details">
                             ${dateStr}, ${timeStr}<br>
-                            <span class="activity-address">${tx.amount} MON sent to ${shortAddress}</span>
+                            <a href="${config.explorerUrl}/tx/${tx.hash}" target="_blank" class="activity-address">
+                                0.1 MON sent to ${shortAddress}
+                            </a>
                         </div>
                     `;
                     
@@ -513,11 +531,14 @@
                 // Hide after 7 seconds
                 outputTimeout = setTimeout(() => {
                     outputData.style.display = 'none';
-                }, 4000);
+                }, 7000);
             }
             
             // Update status when address changes
             addressInput.addEventListener('input', updateRequestStatus);
+            
+            // Initial render
+            renderActivityFeed();
         });
     </script>
 </body>
