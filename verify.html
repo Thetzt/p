@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verification Complete</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 40px; }
+        .success { color: green; font-size: 24px; margin: 20px 0; }
+        .address { background: #f5f5f5; padding: 10px; margin: 20px auto; max-width: 500px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Verification Complete</h1>
+        <div class="success">✓ Robot verification passed</div>
+        
+        <p>Your EVM address:</p>
+        <div class="address" id="evmAddress"></div>
+        
+        <p>You can now close this window and return to the claim page.</p>
+    </div>
+
+    <script>
+        // Store verification status in localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const address = urlParams.get('address');
+        
+        if (address) {
+            document.getElementById('evmAddress').textContent = address;
+            localStorage.setItem('verifiedAddress', address);
+            
+            // Optional: Notify the main window
+            if (window.opener) {
+                window.opener.postMessage({ type: 'verificationComplete', address }, '*');
+            }
+        }
+    </script>
+</body>
+</html>
