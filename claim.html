@@ -18,37 +18,40 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
         }
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
+        .profile-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
         }
-        .user-avatar {
-            width: 50px;
-            height: 50px;
+        .profile-avatar {
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             object-fit: cover;
         }
-        .user-info {
-            flex: 1;
-            text-align: left;
-        }
-        .user-name {
-            font-weight: bold;
-            margin-bottom: 5px;
+        .logout-popup {
+            display: none;
+            position: absolute;
+            top: 50px;
+            right: 0;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 10;
         }
         .logout-btn {
             background: #ff4444;
             color: white;
             border: none;
             border-radius: 4px;
-            padding: 6px 12px;
+            padding: 8px 15px;
             cursor: pointer;
             font-size: 14px;
+            width: 100%;
         }
         input { 
             padding: 12px; 
@@ -83,10 +86,10 @@
 </head>
 <body>
     <div class="container">
-        <div class="user-profile" id="userProfile">
-            <img class="user-avatar" id="userAvatar" src="" alt="User Avatar">
-            <div class="user-info">
-                <div class="user-name" id="userName"></div>
+        <!-- Profile in top-right corner -->
+        <div class="profile-container" id="profileContainer">
+            <img class="profile-avatar" id="userAvatar" src="" alt="Profile">
+            <div class="logout-popup" id="logoutPopup">
                 <button class="logout-btn" id="logoutBtn">Logout</button>
             </div>
         </div>
@@ -106,18 +109,30 @@
             window.location.href = 'index.html';
         }
 
-        // Display user info
-        document.getElementById('userName').textContent = telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : '');
-        
+        // Set profile avatar
+        const userAvatar = document.getElementById('userAvatar');
         if (telegramUser.photo_url) {
-            document.getElementById('userAvatar').src = telegramUser.photo_url;
+            userAvatar.src = telegramUser.photo_url;
         } else {
-            // Default avatar if none provided
-            document.getElementById('userAvatar').src = 'https://telegram.org/img/t_logo.png';
-            document.getElementById('userAvatar').style.objectFit = 'contain';
-            document.getElementById('userAvatar').style.padding = '10px';
-            document.getElementById('userAvatar').style.backgroundColor = '#0088cc';
+            userAvatar.src = 'https://telegram.org/img/t_logo.png';
+            userAvatar.style.objectFit = 'contain';
+            userAvatar.style.padding = '8px';
+            userAvatar.style.backgroundColor = '#0088cc';
         }
+
+        // Profile click handler
+        const profileContainer = document.getElementById('profileContainer');
+        const logoutPopup = document.getElementById('logoutPopup');
+        
+        profileContainer.addEventListener('click', function(e) {
+            e.stopPropagation();
+            logoutPopup.style.display = logoutPopup.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // Close popup when clicking elsewhere
+        document.addEventListener('click', function() {
+            logoutPopup.style.display = 'none';
+        });
 
         // Logout handler
         document.getElementById('logoutBtn').addEventListener('click', function() {
@@ -125,8 +140,8 @@
             window.location.href = 'index.html';
         });
 
-        // Rest of your claim page functionality from script.js
-        // ... [Include all the claim page JavaScript from previous script.js]
+        // Rest of your claim page functionality
+        // ... [Include all the claim page JavaScript from script.js]
     </script>
     <script src="script.js"></script>
 </body>
