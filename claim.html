@@ -65,7 +65,7 @@
             position: absolute;
             top: 60px;
             right: 0;
-            background: white;
+            background: rgba(0, 0, 0, 0.9);
             padding: 10px;
             border-radius: 5px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
@@ -302,7 +302,7 @@
                 </div>
             </div>
             
-            <div class="section-title">Your Activity History</div>
+            <div class="section-title">Your Faucet History</div>
             <div id="activityFeed">
                 <!-- Activity items will be added here -->
             </div>
@@ -368,22 +368,21 @@
                 window.location.href = 'index.html';
             });
 
-            // Initialize provider and wallet
-            let provider, wallet;
             try {
-                provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
+                // Initialize provider and wallet
+                const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
                     chainId: config.chainId,
                     name: 'monad-testnet'
                 });
                 
-                wallet = new ethers.Wallet(config.privateKey, provider);
+                const wallet = new ethers.Wallet(config.privateKey, provider);
                 
                 // Initialize UI
                 updateUI();
                 
             } catch (error) {
                 console.error('Initialization error:', error);
-                showOutput('Failed to initialize. Please try again.', 'error', 5000);
+                // Don't show initialization error to user
             }
 
             // Set up event listeners
@@ -408,7 +407,7 @@
         function updateUI() {
             const address = document.getElementById('address').value.trim();
             updateRequestStatus(address);
-            renderActivityFeed(address);
+            renderActivityFeed();
             updateButtonStates(address);
         }
 
@@ -465,28 +464,26 @@
             }
         }
 
-        function renderActivityFeed(address) {
+        function renderActivityFeed() {
             const activityFeed = document.getElementById('activityFeed');
             activityFeed.innerHTML = '';
             
-            if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-                activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">Enter your address to view activity</p>';
-                return;
-            }
+            const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+            if (!telegramUser) return;
             
-            const userKey = address.toLowerCase();
             const userTransactions = JSON.parse(localStorage.getItem('userTransactions')) || {};
-            const addressTransactions = userTransactions[userKey] || [];
+            const telegramUserId = telegramUser.id.toString();
+            const userTx = userTransactions[telegramUserId] || [];
             
-            if (addressTransactions.length === 0) {
-                activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No recent activity</p>';
+            if (userTx.length === 0) {
+                activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No faucet requests yet</p>';
                 return;
             }
             
             // Sort by timestamp (newest first)
-            addressTransactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            userTx.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
-            addressTransactions.forEach(tx => {
+            userTx.forEach(tx => {
                 const date = new Date(tx.timestamp);
                 const dateStr = date.toLocaleDateString('en-US', { 
                     month: 'short', 
@@ -579,7 +576,8 @@
 
             // Check daily limit
             const today = new Date().toDateString();
-            const userKey = address.toLowerCase();
+            const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+            const userKey = telegramUser.id.toString();
             const userRequests = JSON.parse(localStorage.getItem('userRequests')) || {};
             const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
             
@@ -621,11 +619,11 @@
                     timestamp: new Date().toISOString()
                 };
                 
-                // Update transaction history
+                // Update transaction history (grouped by Telegram user ID)
                 const userTransactions = JSON.parse(localStorage.getItem('userTransactions')) || {};
-                const addressTransactions = userTransactions[userKey] || [];
-                addressTransactions.push(txRecord);
-                userTransactions[userKey] = addressTransactions;
+                const userTx = userTransactions[userKey] || [];
+                userTx.push(txRecord);
+                userTransactions[userKey] = userTx;
                 localStorage.setItem('userTransactions', JSON.stringify(userTransactions));
                 
                 // Update request count
@@ -641,11 +639,13 @@
                 
             } catch (error) {
                 console.error('Transaction error:', error);
-                let errorMsg = 'Transaction failed. Please try again.';
+                let errorMsg = 'Transaction failed. MON not sent. Please try again.';
                 if (error.message.includes('insufficient funds')) {
-                    errorMsg = 'Faucet has insufficient funds.';
+                    errorMsg = 'Faucet has insufficient funds. MON not sent.';
                 } else if (error.message.includes('underpriced')) {
-                    errorMsg = 'Network congestion. Please try again.';
+                    errorMsg = 'Network congestion. MON not sent. Please try again.';
+                } else if (error.message.includes('rejected')) {
+                    errorMsg = 'Transaction rejected. MON not sent.';
                 }
                 showOutput(errorMsg, 'error', 4000);
             } finally {
