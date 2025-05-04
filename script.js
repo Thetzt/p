@@ -1,133 +1,114 @@
 // Initialize verification state
 let pendingVerificationAddress = '';
+const CUTY_API_KEY = "0037252eb04b18f83ea817f4f";
 
-// Check verification status when page loads
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Check if returning from verification
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('verificationComplete')) {
-        handleVerificationReturn();
+        await handleVerificationReturn();
         // Clean the URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
     // Check for pending verification
     checkPendingVerification();
+    
+    // Initialize UI for current address
+    const address = document.getElementById('evmAddress').value.trim();
+    if (address) updateButtonStates(address);
 });
 
-function checkPendingVerification() {
+async function checkPendingVerification() {
     const pendingAddress = localStorage.getItem('pendingVerificationAddress');
     if (pendingAddress) {
-        // If we have a pending address but no verificationComplete flag,
-        // it means verification was interrupted
-        localStorage.removeItem('pendingVerificationAddress');
+        // Check if verification was completed
+        const isVerified = await checkCutyVerification(pendingAddress);
+        if (isVerified) {
+            handleVerificationSuccess(pendingAddress);
+        } else {
+            document.getElementById('status').textContent = 'Verification not completed';
+            document.getElementById('status').className = 'error';
+        }
     }
 }
 
-function handleVerificationReturn() {
+async function checkCutyVerification(address) {
+    try {
+        // Get Cuty.io link stats for this address
+        const response = await fetch(`https://api.cuty.io/analytics?token=${CUTY_API_KEY}&address=${encodeURIComponent(address)}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            // Check if there's at least 1 valid visit
+            return data.validVisits > 0;
+        }
+        return false;
+    } catch (error) {
+        console.error('Error checking Cuty verification:', error);
+        return false;
+    }
+}
+
+async function handleVerificationReturn() {
     const pendingAddress = localStorage.getItem('pendingVerificationAddress');
     if (pendingAddress && /^0x[a-fA-F0-9]{40}$/.test(pendingAddress)) {
-        // Mark address as verified
-        const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
-        if (!verifiedAddresses.includes(pendingAddress)) {
-            verifiedAddresses.push(pendingAddress);
-            localStorage.setItem('verifiedAddresses', JSON.stringify(verifiedAddresses));
-        }
+        const isVerified = await checkCutyVerification(pendingAddress);
         
-        // Update UI
-        document.getElementById('evmAddress').value = pendingAddress;
-        updateButtonStates(pendingAddress);
+        if (isVerified) {
+            handleVerificationSuccess(pendingAddress);
+        } else {
+            document.getElementById('status').textContent = 'Verification failed - no valid visits recorded';
+            document.getElementById('status').className = 'error';
+        }
         
         // Clear pending verification
         localStorage.removeItem('pendingVerificationAddress');
-        
-        // Show success message
-        document.getElementById('status').textContent = 'Verification successful!';
-        document.getElementById('status').className = 'success';
     }
 }
 
-function updateButtonStates(address) {
+function handleVerificationSuccess(address) {
+    // Mark address as verified
     const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
-    const isVerified = verifiedAddresses.includes(address);
-    
-    document.getElementById('verifyBtn').style.display = isVerified ? 'none' : 'block';
-    document.getElementById('verifySuccessBtn').style.display = isVerified ? 'block' : 'none';
-}
-
-// Address input handler
-document.getElementById('evmAddress').addEventListener('input', function() {
-    const address = this.value.trim();
-    if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        updateButtonStates(address);
-    } else {
-        document.getElementById('verifyBtn').style.display = 'block';
-        document.getElementById('verifySuccessBtn').style.display = 'none';
-    }
-});
-
-// Verify button handler
-document.getElementById('verifyBtn').addEventListener('click', function() {
-    const address = document.getElementById('evmAddress').value.trim();
-    
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        document.getElementById('status').textContent = 'Please enter a valid EVM address';
-        document.getElementById('status').className = 'error';
-        return;
-    }
-
-    startVerification(address);
-});
-
-// Claim button handler
-document.getElementById('claimBtn').addEventListener('click', function() {
-    const address = document.getElementById('evmAddress').value.trim();
-    const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
-    
-    if (!address) {
-        document.getElementById('status').textContent = 'Please enter your EVM address';
-        document.getElementById('status').className = 'error';
-        return;
-    }
-    
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        document.getElementById('status').textContent = 'Invalid EVM address format';
-        document.getElementById('status').className = 'error';
-        return;
-    }
-    
     if (!verifiedAddresses.includes(address)) {
-        document.getElementById('status').textContent = 'Please complete robot verification first';
-        document.getElementById('status').className = 'error';
-        return;
+        verifiedAddresses.push(address);
+        localStorage.setItem('verifiedAddresses', JSON.stringify(verifiedAddresses));
     }
+    
+    // Update UI
+    document.getElementById('evmAddress').value = address;
+    updateButtonStates(address);
+    
+    // Show success message
+    document.getElementById('status').textContent = 'Verification successful!';
+    document.getElementById('status').className = 'success';
+}
 
-    processClaim(address);
-});
+// Rest of your existing functions (updateButtonStates, startVerification, processClaim) remain similar
+// but update startVerification to include address in Cuty.io link metadata:
 
 async function startVerification(address) {
     const statusElement = document.getElementById('status');
     const verifyBtn = document.getElementById('verifyBtn');
     
     verifyBtn.disabled = true;
-    statusElement.textContent = 'Preparing verification...';
+    statusElement.textContent = 'Starting verification...';
     statusElement.className = 'processing';
 
     try {
         // Store the address we're verifying
         localStorage.setItem('pendingVerificationAddress', address);
-        pendingVerificationAddress = address;
 
-        const API_TOKEN = "0037252eb04b18f83ea817f4f";
         const RETURN_URL = `https://claimpx.netlify.app/?verificationComplete=true`;
         
         const response = await fetch('https://api.cuty.io/full', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                token: API_TOKEN,
+                token: CUTY_API_KEY,
                 url: RETURN_URL,
-                title: 'Robot Verification for 0.1 MON Claim'
+                title: `Verification for ${address}`,
+                metadata: JSON.stringify({ evmAddress: address }) // Store address in link metadata
             })
         });
 
@@ -142,27 +123,4 @@ async function startVerification(address) {
         verifyBtn.disabled = false;
         localStorage.removeItem('pendingVerificationAddress');
     }
-}
-
-async function processClaim(address) {
-    const statusElement = document.getElementById('status');
-    const claimBtn = document.getElementById('claimBtn');
-    
-    claimBtn.disabled = true;
-    statusElement.textContent = 'Sending 0.1 MON...';
-    statusElement.className = 'processing';
-
-    // Simulate blockchain transaction (2 second delay)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    statusElement.textContent = `Success! 0.1 MON sent to ${address}`;
-    statusElement.className = 'success';
-    claimBtn.textContent = 'Claimed!';
-    
-    // Reset after 5 seconds
-    setTimeout(() => {
-        claimBtn.disabled = false;
-        claimBtn.textContent = 'Claim 0.1 MON';
-        statusElement.textContent = '';
-    }, 5000);
 }
