@@ -1,33 +1,33 @@
 // Check URL parameters on load (for return from Cuty.io)
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
-    const verifiedAddress = urlParams.get('verified');
+    const address = urlParams.get('address');
     
-    if (verifiedAddress) {
-        // Add to whitelist
-        const whitelist = JSON.parse(localStorage.getItem('whitelist') || [];
-        if (!whitelist.includes(verifiedAddress)) {
-            whitelist.push(verifiedAddress);
-            localStorage.setItem('whitelist', JSON.stringify(whitelist));
+    if (address && /^0x[a-fA-F0-9]{40}$/.test(address)) {
+        // Add to verified addresses in localStorage
+        const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
+        if (!verifiedAddresses.includes(address)) {
+            verifiedAddresses.push(address);
+            localStorage.setItem('verifiedAddresses', JSON.stringify(verifiedAddresses));
         }
         
-        // Auto-fill address and show verified status
-        document.getElementById('evmAddress').value = verifiedAddress;
-        checkVerificationStatus(verifiedAddress);
+        // Auto-fill address and update UI
+        document.getElementById('evmAddress').value = address;
+        updateButtonStates(address);
     }
 });
 
-// Check if address is already verified
-function checkVerificationStatus(address) {
-    const whitelist = JSON.parse(localStorage.getItem('whitelist')) || [];
-    const isVerified = whitelist.includes(address);
+// Update button states based on verification status
+function updateButtonStates(address) {
+    const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
+    const isVerified = verifiedAddresses.includes(address);
     
     if (isVerified) {
-        document.getElementById('verifiedBadge').style.display = 'inline-block';
         document.getElementById('verifyBtn').style.display = 'none';
+        document.getElementById('verifySuccessBtn').style.display = 'block';
     } else {
-        document.getElementById('verifiedBadge').style.display = 'none';
         document.getElementById('verifyBtn').style.display = 'block';
+        document.getElementById('verifySuccessBtn').style.display = 'none';
     }
 }
 
@@ -35,10 +35,10 @@ function checkVerificationStatus(address) {
 document.getElementById('evmAddress').addEventListener('input', function() {
     const address = this.value.trim();
     if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        checkVerificationStatus(address);
+        updateButtonStates(address);
     } else {
-        document.getElementById('verifiedBadge').style.display = 'none';
         document.getElementById('verifyBtn').style.display = 'block';
+        document.getElementById('verifySuccessBtn').style.display = 'none';
     }
 });
 
@@ -58,6 +58,26 @@ document.getElementById('verifyBtn').addEventListener('click', function() {
 // Claim button handler
 document.getElementById('claimBtn').addEventListener('click', function() {
     const address = document.getElementById('evmAddress').value.trim();
+    const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
+    
+    if (!address) {
+        document.getElementById('status').textContent = 'Please enter your EVM address';
+        document.getElementById('status').className = 'error';
+        return;
+    }
+    
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        document.getElementById('status').textContent = 'Invalid EVM address format';
+        document.getElementById('status').className = 'error';
+        return;
+    }
+    
+    if (!verifiedAddresses.includes(address)) {
+        document.getElementById('status').textContent = 'Please complete robot verification first';
+        document.getElementById('status').className = 'error';
+        return;
+    }
+
     processClaim(address);
 });
 
@@ -72,7 +92,7 @@ async function startVerification(address) {
     try {
         // Create Cuty.io verification link with return URL
         const API_TOKEN = "0037252eb04b18f83ea817f4f";
-        const RETURN_URL = `https://claimpx.netlify.app/?verified=${encodeURIComponent(address)}`;
+        const RETURN_URL = `https://claimpx.netlify.app/?address=${encodeURIComponent(address)}`;
         
         const response = await fetch('https://api.cuty.io/full', {
             method: 'POST',
@@ -100,14 +120,6 @@ async function processClaim(address) {
     const statusElement = document.getElementById('status');
     const claimBtn = document.getElementById('claimBtn');
     
-    // Verify address is whitelisted
-    const whitelist = JSON.parse(localStorage.getItem('whitelist')) || [];
-    if (!whitelist.includes(address)) {
-        statusElement.textContent = 'Please complete verification first';
-        statusElement.className = 'error';
-        return;
-    }
-
     claimBtn.disabled = true;
     statusElement.textContent = 'Sending 0.1 MON...';
     statusElement.className = 'processing';
