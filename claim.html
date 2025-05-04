@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Claim 0.1 MON</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 20px;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container { 
+            max-width: 500px; 
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        input { 
+            padding: 12px; 
+            width: 100%; 
+            margin: 10px 0; 
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button { 
+            padding: 12px 24px; 
+            color: white; 
+            border: none; 
+            border-radius: 4px;
+            cursor: pointer; 
+            font-size: 16px;
+            width: 100%;
+            margin: 5px 0;
+            transition: background 0.3s;
+        }
+        #claimBtn { 
+            background: #4CAF50; 
+            margin-bottom: 10px; 
+        }
+        #claimBtn:hover { background: #45a049; }
+        #verifyBtn { 
+            background: #2196F3; 
+            display: none; 
+        }
+        #verifyBtn:hover { background: #0b7dda; }
+        #verifySuccessBtn { 
+            background: #4CAF50; 
+            display: none; 
+        }
+        button:disabled { 
+            background: #cccccc; 
+            cursor: not-allowed;
+        }
+        #status { 
+            margin-top: 20px; 
+            font-weight: bold;
+            min-height: 24px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .processing { color: blue; }
+        .user-info {
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f0f8ff;
+            border-radius: 5px;
+        }
+        .telegram-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-bottom: 10px;
+        }
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            button {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="user-info">
+            <img id="userAvatar" class="telegram-avatar" src="" alt="Telegram Avatar">
+            <p>Logged in as: <span id="username"></span></p>
+            <button id="logoutBtn" style="background: #ff4444; width: auto; padding: 8px 15px;">Logout</button>
+        </div>
+        
+        <h2>Claim 0.1 MON</h2>
+        <input type="text" id="evmAddress" placeholder="Enter EVM Address (0x...)" required>
+        <button id="claimBtn">Claim 0.1 MON</button>
+        <button id="verifyBtn">Verify You're Not a Robot</button>
+        <button id="verifySuccessBtn">✓ Verification Passed</button>
+        <p id="status"></p>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Display Telegram user info
+        const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+        if (telegramUser) {
+            document.getElementById('username').textContent = telegramUser.username || telegramUser.first_name;
+            if (telegramUser.photo_url) {
+                document.getElementById('userAvatar').src = telegramUser.photo_url;
+            }
+        } else {
+            // Redirect to login if not authenticated
+            window.location.href = 'index.html';
+        }
+
+        // Logout handler
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            localStorage.removeItem('telegramUser');
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>
