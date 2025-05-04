@@ -140,4 +140,6 @@ function showStatus(message, type) {
 }
 
 function clearStatus() {
-    document.getElementById('
+    document.getElementById('status').textContent = '';
+    document.getElementById('status').className = '';
+}
