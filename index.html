@@ -24,15 +24,19 @@
             width: 100%;
         }
         button:hover { background: #45a049; }
+        button:disabled { background: #cccccc; }
         #status { 
             margin-top: 20px;
             font-weight: bold;
         }
+        .success { color: green; }
+        .error { color: red; }
+        .processing { color: blue; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Request 0.1 mon</h2>
+        <h2>Claim 0.1 mon</h2>
         <input type="text" id="evmAddress" placeholder="Enter your EVM Address (0x...)" required>
         <button id="claimButton">Claim Now</button>
         <p id="status"></p>
