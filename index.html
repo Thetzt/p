@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Cuty.io EVM Claim</title>
+    <title>Claim 0.1 mon</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
         .container { max-width: 500px; margin: 0 auto; }
@@ -24,25 +24,18 @@
             width: 100%;
         }
         button:hover { background: #45a049; }
-        #success { 
-            color: green; 
-            font-weight: bold; 
+        #status { 
             margin-top: 20px;
-            display: none; 
+            font-weight: bold;
         }
-        .logo { margin-bottom: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo">
-            <!-- Add your logo here if needed -->
-            <h2>Request 0.1 mon</h2>
-        </div>
-        
+        <h2>Request 0.1 mon</h2>
         <input type="text" id="evmAddress" placeholder="Enter your EVM Address (0x...)" required>
         <button id="claimButton">Claim Now</button>
-        <p id="success">Sent! ✅</p>
+        <p id="status"></p>
     </div>
 
     <script src="script.js"></script>
