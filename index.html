@@ -1,47 +1,151 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Claim 0.1 MON</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One Click Per Device</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; }
-        input { 
-            padding: 12px; 
-            width: 100%; 
-            margin: 10px 0; 
-            border: 1px solid #ddd;
-            border-radius: 4px;
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
         }
-        button { 
-            padding: 12px 24px; 
-            color: white; 
-            border: none; 
-            border-radius: 4px;
-            cursor: pointer; 
+        button {
+            padding: 10px 20px;
             font-size: 16px;
-            width: 100%;
-            margin: 5px 0;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 20px 0;
         }
-        #verifyBtn { background: #2196F3; }
-        #verifyBtn:hover { background: #0b7dda; }
-        #claimBtn { background: #4CAF50; display: none; }
-        #claimBtn:hover { background: #45a049; }
-        button:disabled { background: #cccccc; }
-        #status { margin-top: 20px; font-weight: bold; }
-        .success { color: green; }
-        .error { color: red; }
-        .processing { color: blue; }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #result {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .info {
+            background-color: #d9edf7;
+            color: #31708f;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Claim 0.1 MON</h2>
-        <input type="text" id="evmAddress" placeholder="Enter EVM Address (0x...)" required>
-        <button id="verifyBtn">Verify You're Not a Robot</button>
-        <button id="claimBtn">Claim 0.1 MON</button>
-        <p id="status"></p>
-    </div>
+    <h1>One Click Per Device</h1>
+    <p>Each device can only click the button once, even if IP changes.</p>
+    
+    <button id="clickButton">Click Me</button>
+    
+    <div id="result"></div>
+    
+    <div id="deviceInfo" class="info"></div>
 
-    <script src="script.js"></script>
+    <script>
+        // Get DOM elements
+        const clickButton = document.getElementById('clickButton');
+        const resultDiv = document.getElementById('result');
+        const deviceInfoDiv = document.getElementById('deviceInfo');
+        
+        // Generate a persistent device fingerprint
+        function generateDeviceId() {
+            // Combine multiple factors to create a device fingerprint
+            const components = [
+                navigator.userAgent,
+                navigator.hardwareConcurrency,
+                navigator.deviceMemory,
+                screen.width + 'x' + screen.height,
+                navigator.platform,
+                new Date().getTimezoneOffset(),
+                navigator.language
+            ];
+            
+            // Create hash from components
+            let hash = 0;
+            const str = components.join('|');
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32bit integer
+            }
+            
+            return 'device_' + Math.abs(hash).toString(16);
+        }
+        
+        // Get or create device ID
+        function getDeviceId() {
+            let deviceId = localStorage.getItem('deviceId');
+            if (!deviceId) {
+                deviceId = generateDeviceId();
+                localStorage.setItem('deviceId', deviceId);
+            }
+            return deviceId;
+        }
+        
+        // Track clicked devices (in a real app, this would be server-side)
+        let clickedDevices = JSON.parse(localStorage.getItem('clickedDevices') || '{}');
+        const deviceId = getDeviceId();
+        
+        // Display device info
+        deviceInfoDiv.innerHTML = `
+            <p><strong>Device ID:</strong> ${deviceId}</p>
+            <p><strong>User Agent:</strong> ${navigator.userAgent}</p>
+        `;
+        
+        // Check if this device has already clicked
+        if (clickedDevices[deviceId]) {
+            disableButton();
+            showResult('This device has already clicked.', 'error');
+        }
+        
+        // Handle button click
+        function handleClick() {
+            if (clickedDevices[deviceId]) {
+                showResult('This device has already clicked.', 'error');
+                return;
+            }
+            
+            // Mark device as clicked
+            clickedDevices[deviceId] = {
+                timestamp: new Date().toISOString(),
+                ip: 'Unknown' // Would be set from server in real implementation
+            };
+            localStorage.setItem('clickedDevices', JSON.stringify(clickedDevices));
+            
+            // Show success and disable button
+            showResult('Success! Your click was counted.', 'success');
+            disableButton();
+            
+            // In a real app, you would send this to your server:
+            // recordClickOnServer(deviceId);
+        }
+        
+        function disableButton() {
+            clickButton.disabled = true;
+            clickButton.textContent = 'Already Clicked';
+        }
+        
+        function showResult(message, type) {
+            resultDiv.textContent = message;
+            resultDiv.className = type;
+        }
+        
+        // Initialize
+        clickButton.addEventListener('click', handleClick);
+    </script>
 </body>
 </html>
