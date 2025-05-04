@@ -22,34 +22,25 @@
             width: 100%;
             margin: 5px 0;
         }
+        #claimBtn { background: #4CAF50; margin-bottom: 10px; }
+        #claimBtn:hover { background: #45a049; }
         #verifyBtn { background: #2196F3; }
         #verifyBtn:hover { background: #0b7dda; }
-        #claimBtn { background: #4CAF50; }
-        #claimBtn:hover { background: #45a049; }
+        #verifySuccessBtn { background: #4CAF50; display: none; }
         button:disabled { background: #cccccc; }
         #status { margin-top: 20px; font-weight: bold; }
         .success { color: green; }
         .error { color: red; }
         .processing { color: blue; }
-        .verified-badge { 
-            display: inline-block;
-            background: #4CAF50;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 20px;
-            margin-left: 10px;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Claim 0.1 MON</h2>
-        <div style="position: relative;">
-            <input type="text" id="evmAddress" placeholder="Enter EVM Address (0x...)" required>
-            <span id="verifiedBadge" class="verified-badge" style="display: none;">✓ Verified</span>
-        </div>
-        <button id="verifyBtn">Verify You're Not a Robot</button>
+        <input type="text" id="evmAddress" placeholder="Enter EVM Address (0x...)" required>
         <button id="claimBtn">Claim 0.1 MON</button>
+        <button id="verifyBtn">Verify You're Not a Robot</button>
+        <button id="verifySuccessBtn">✓ Verification Passed</button>
         <p id="status"></p>
     </div>
 
