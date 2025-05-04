@@ -6,24 +6,126 @@
     <title>Earn MON - Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Your existing CSS styles */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f5;
-            color: #333;
+            background-color: #18222d;
+            color: #fff;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
         }
-        /* Include all your other CSS styles here */
+        
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #3d8af7;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .earn-card {
+            background-color: #1e2937;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+            text-align: center;
+            border: 1px solid #2d3748;
+        }
+        
+        .earn-card h2 {
+            font-size: 20px;
+            margin-top: 0;
+            color: #fff;
+        }
+        
+        .earn-card p {
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+        
+        .balance {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #3d8af7;
+        }
+        
+        .btn {
+            background-color: #3d8af7;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .btn:hover {
+            background-color: #2b7af0;
+            transform: translateY(-2px);
+        }
+        
+        .btn:active {
+            background-color: #1a6ae8;
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background-color: #4b5563;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .history {
+            width: 100%;
+            background-color: #1e2937;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            border: 1px solid #2d3748;
+        }
+        
+        .history h2 {
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .history-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #2d3748;
+            display: flex;
+            justify-content: space-between;
+            color: #e2e8f0;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
     </style>
+    <script src='https://whephiwums.com/sdk.js' data-zone='9294002' data-sdk='show_9294002'></script>
 </head>
 <body>
     <div class="container">
-        <!-- Your existing HTML structure -->
         <div class="header">
             <h1>Earn MON Tokens</h1>
             <p>Watch ads and earn cryptocurrency rewards</p>
@@ -35,93 +137,162 @@
             <p>Watch an ad to earn MON tokens</p>
             <button class="btn" id="watchBtn">Watch & Earn 10 MON</button>
         </div>
+        
+        <div class="history">
+            <h2>Recent Earnings</h2>
+            <div id="historyList">
+                <div class="history-item">
+                    <span>No earnings yet</span>
+                    <span>0 MON</span>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- Load SDK with error handling -->
+    
     <script>
-        // Initialize Telegram WebApp if in Telegram environment
+        // Initialize Telegram WebApp if in Telegram
         let tg;
         if (window.Telegram && window.Telegram.WebApp) {
             tg = window.Telegram.WebApp;
             tg.expand();
+        } else {
+            // Fallback for non-Telegram environment
+            tg = {
+                showAlert: function(msg) { alert(msg); },
+                showPopup: function(params) { alert(params.message); }
+            };
         }
-
-        // Function to load SDK dynamically with fallback
-        function loadAdSDK() {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = 'https://whephiwums.com/sdk.js';
-                script.setAttribute('data-zone', '9294002');
-                script.setAttribute('data-sdk', 'show_9294002');
-                
-                script.onload = () => {
-                    if (typeof show_9294002 === 'function') {
-                        resolve();
-                    } else {
-                        reject(new Error('SDK loaded but init function not found'));
-                    }
-                };
-                
-                script.onerror = () => {
-                    reject(new Error('Failed to load SDK'));
-                };
-                
-                document.head.appendChild(script);
+        
+        // User data
+        let balance = 0;
+        let earningsHistory = [];
+        
+        // DOM elements
+        const balanceElement = document.getElementById('balance');
+        const watchBtn = document.getElementById('watchBtn');
+        const historyList = document.getElementById('historyList');
+        
+        // Load user data from storage
+        function loadUserData() {
+            const savedData = localStorage.getItem('earnMonData');
+            if (savedData) {
+                try {
+                    const data = JSON.parse(savedData);
+                    balance = data.balance || 0;
+                    earningsHistory = data.earningsHistory || [];
+                    updateUI();
+                } catch (e) {
+                    console.error("Error loading user data:", e);
+                }
+            }
+        }
+        
+        // Save user data to storage
+        function saveUserData() {
+            const data = {
+                balance: balance,
+                earningsHistory: earningsHistory
+            };
+            localStorage.setItem('earnMonData', JSON.stringify(data));
+        }
+        
+        // Update UI with current data
+        function updateUI() {
+            balanceElement.textContent = `${balance} MON`;
+            
+            if (earningsHistory.length > 0) {
+                historyList.innerHTML = '';
+                // Show only last 5 earnings
+                earningsHistory.slice(0, 5).forEach(earning => {
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    
+                    const date = new Date(earning.timestamp);
+                    const timeString = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                    
+                    item.innerHTML = `
+                        <span>${timeString} - Earned</span>
+                        <span>+${earning.amount} MON</span>
+                    `;
+                    historyList.appendChild(item);
+                });
+            }
+        }
+        
+        // Reward user with MON tokens
+        function rewardUser() {
+            const amount = 10; // Fixed reward amount
+            balance += amount;
+            
+            // Add to history
+            earningsHistory.unshift({
+                amount: amount,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Keep only last 50 entries
+            if (earningsHistory.length > 50) {
+                earningsHistory = earningsHistory.slice(0, 50);
+            }
+            
+            saveUserData();
+            updateUI();
+            
+            // Show success message
+            tg.showAlert(`🎉 You earned ${amount} MON!`);
+        }
+        
+        // Handle watch button click
+        watchBtn.addEventListener('click', function() {
+            watchBtn.disabled = true;
+            watchBtn.textContent = 'Loading ad...';
+            
+            // Show rewarded ad
+            if (typeof show_9294002 === 'function') {
+                show_9294002().then(() => {
+                    // User watched the ad successfully
+                    rewardUser();
+                }).catch(e => {
+                    // Ad error or user closed ad early
+                    console.error("Ad error:", e);
+                    tg.showAlert('Please watch the full ad to earn MON.');
+                }).finally(() => {
+                    watchBtn.disabled = false;
+                    watchBtn.textContent = 'Watch & Earn 10 MON';
+                });
+            } else {
+                tg.showAlert('Ad service is currently unavailable. Please try again later.');
+                watchBtn.disabled = false;
+                watchBtn.textContent = 'Watch & Earn 10 MON';
+            }
+        });
+        
+        // Initialize in-app ads
+        if (typeof show_9294002 === 'function') {
+            show_9294002({ 
+                type: 'inApp', 
+                inAppSettings: { 
+                    frequency: 2, 
+                    capping: 0.1, 
+                    interval: 30, 
+                    timeout: 5, 
+                    everyPage: false 
+                } 
             });
         }
-
-        // Main application logic
-        document.addEventListener('DOMContentLoaded', async function() {
-            const watchBtn = document.getElementById('watchBtn');
-            
-            try {
-                // Load the ad SDK
-                await loadAdSDK();
-                console.log('Ad SDK loaded successfully');
-                
-                // Initialize in-app ads
-                if (typeof show_9294002 === 'function') {
-                    show_9294002({ 
-                        type: 'inApp', 
-                        inAppSettings: { 
-                            frequency: 2, 
-                            capping: 0.1, 
-                            interval: 30, 
-                            timeout: 5, 
-                            everyPage: false 
-                        } 
-                    });
-                }
-                
-                // Set up button handler
-                watchBtn.addEventListener('click', function() {
-                    watchBtn.disabled = true;
-                    watchBtn.textContent = 'Loading ad...';
-                    
-                    show_9294002().then(() => {
-                        // Reward logic here
-                        if (tg) tg.showAlert('You earned 10 MON!');
-                        else alert('You earned 10 MON!');
-                    }).catch(e => {
-                        console.error('Ad error:', e);
-                        if (tg) tg.showAlert('Ad failed or was closed early');
-                        else alert('Ad failed or was closed early');
-                    }).finally(() => {
-                        watchBtn.disabled = false;
-                        watchBtn.textContent = 'Watch & Earn 10 MON';
-                    });
+        
+        // Load user data when page loads
+        document.addEventListener('DOMContentLoaded', loadUserData);
+        
+        // Add error handling for the ad SDK
+        window.addEventListener('error', function(e) {
+            if (e.message.includes('show_9294002')) {
+                console.error("Ad SDK error:", e);
+                tg.showPopup({
+                    title: "Ad Error",
+                    message: "Could not load ads. Please try again later.",
+                    buttons: [{ type: "ok" }]
                 });
-                
-            } catch (error) {
-                console.error('Initialization error:', error);
-                watchBtn.disabled = true;
-                watchBtn.textContent = 'Ad system unavailable';
-                
-                if (tg) {
-                    tg.showAlert('Ad system is currently unavailable. Please try again later.');
-                } else {
-                    alert('Ad system is currently unavailable.');
-                }
             }
         });
     </script>
