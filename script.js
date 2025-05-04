@@ -1,48 +1,68 @@
-// Initialize state
+// Global state variables
 let telegramUser = null;
 let pendingVerificationAddress = '';
+let verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
 
-// Check authentication and verification status when page loads
+// Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    // Check Telegram auth status
+    // Check if user is already logged in
     telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
-    if (telegramUser) {
-        showClaimSection();
-    }
-
-    // Check if returning from verification
+    
+    // If coming back from verification
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('verificationComplete')) {
         handleVerificationReturn();
-        // Clean the URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    // Check for pending verification
-    checkPendingVerification();
+    // If logged in, show claim section
+    if (telegramUser) {
+        showClaimSection();
+    } else {
+        // Initialize Telegram login widget
+        initTelegramLogin();
+    }
 });
 
+// Telegram login handler
 function onTelegramAuth(user) {
-    // Store Telegram user data
+    if (!user || !user.id) {
+        showError("Telegram login failed. Please try again.");
+        return;
+    }
+    
+    // Store user data
     telegramUser = user;
     localStorage.setItem('telegramUser', JSON.stringify(user));
-    showClaimSection();
     
-    // Log the login (you can send to your server)
-    console.log('Telegram user logged in:', user);
+    // Show claim section
+    showClaimSection();
+}
+
+function initTelegramLogin() {
+    const script = document.createElement('script');
+    script.src = 'https://telegram.org/js/telegram-widget.js?19';
+    script.setAttribute('data-telegram-login', 'uxxucc_bot');
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    script.setAttribute('data-request-access', 'write');
+    document.body.appendChild(script);
 }
 
 function showClaimSection() {
     document.getElementById('telegramAuth').classList.add('hidden');
     document.getElementById('claimSection').classList.remove('hidden');
+    
+    // Check for pending verification
+    checkPendingVerification();
 }
 
 function checkPendingVerification() {
     const pendingAddress = localStorage.getItem('pendingVerificationAddress');
-    if (pendingAddress) {
-        // If we have a pending address but no verificationComplete flag,
-        // it means verification was interrupted
+    if (pendingAddress && !verifiedAddresses.includes(pendingAddress)) {
+        // Verification was interrupted
         localStorage.removeItem('pendingVerificationAddress');
+        showError("Previous verification was interrupted. Please verify again.");
     }
 }
 
@@ -50,7 +70,6 @@ function handleVerificationReturn() {
     const pendingAddress = localStorage.getItem('pendingVerificationAddress');
     if (pendingAddress && /^0x[a-fA-F0-9]{40}$/.test(pendingAddress)) {
         // Mark address as verified
-        const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
         if (!verifiedAddresses.includes(pendingAddress)) {
             verifiedAddresses.push(pendingAddress);
             localStorage.setItem('verifiedAddresses', JSON.stringify(verifiedAddresses));
@@ -59,25 +78,18 @@ function handleVerificationReturn() {
         // Update UI
         document.getElementById('evmAddress').value = pendingAddress;
         updateButtonStates(pendingAddress);
-        
-        // Clear pending verification
         localStorage.removeItem('pendingVerificationAddress');
-        
-        // Show success message
-        document.getElementById('status').textContent = 'Verification successful!';
-        document.getElementById('status').className = 'success';
+        showSuccess("Verification successful!");
     }
 }
 
 function updateButtonStates(address) {
-    const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
     const isVerified = verifiedAddresses.includes(address);
-    
     document.getElementById('verifyBtn').style.display = isVerified ? 'none' : 'block';
     document.getElementById('verifySuccessBtn').style.display = isVerified ? 'block' : 'none';
 }
 
-// Address input handler
+// Event Listeners
 document.getElementById('evmAddress').addEventListener('input', function() {
     const address = this.value.trim();
     if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
@@ -88,60 +100,50 @@ document.getElementById('evmAddress').addEventListener('input', function() {
     }
 });
 
-// Verify button handler
 document.getElementById('verifyBtn').addEventListener('click', function() {
     const address = document.getElementById('evmAddress').value.trim();
     
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        document.getElementById('status').textContent = 'Please enter a valid EVM address';
-        document.getElementById('status').className = 'error';
+        showError("Please enter a valid EVM address");
         return;
     }
 
     startVerification(address);
 });
 
-// Claim button handler
 document.getElementById('claimBtn').addEventListener('click', function() {
     const address = document.getElementById('evmAddress').value.trim();
-    const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
     
     if (!address) {
-        document.getElementById('status').textContent = 'Please enter your EVM address';
-        document.getElementById('status').className = 'error';
+        showError("Please enter your EVM address");
         return;
     }
     
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        document.getElementById('status').textContent = 'Invalid EVM address format';
-        document.getElementById('status').className = 'error';
+        showError("Invalid EVM address format");
         return;
     }
     
     if (!verifiedAddresses.includes(address)) {
-        document.getElementById('status').textContent = 'Please complete robot verification first';
-        document.getElementById('status').className = 'error';
+        showError("Please complete robot verification first");
         return;
     }
 
     processClaim(address);
 });
 
+// Core Functions
 async function startVerification(address) {
-    const statusElement = document.getElementById('status');
     const verifyBtn = document.getElementById('verifyBtn');
-    
     verifyBtn.disabled = true;
-    statusElement.textContent = 'Preparing verification...';
-    statusElement.className = 'processing';
+    showStatus("Preparing verification...", 'processing');
 
     try {
-        // Store the address we're verifying
         localStorage.setItem('pendingVerificationAddress', address);
         pendingVerificationAddress = address;
 
         const API_TOKEN = "0037252eb04b18f83ea817f4f";
-        const RETURN_URL = `https://claimpx.netlify.app/?verificationComplete=true`;
+        const RETURN_URL = `${window.location.origin}${window.location.pathname}?verificationComplete=true`;
         
         const response = await fetch('https://api.cuty.io/full', {
             method: 'POST',
@@ -159,32 +161,45 @@ async function startVerification(address) {
         window.location.href = data.data.short_url;
 
     } catch (error) {
-        statusElement.textContent = `Error: ${error.message}`;
-        statusElement.className = 'error';
+        showError(`Error: ${error.message}`);
         verifyBtn.disabled = false;
         localStorage.removeItem('pendingVerificationAddress');
     }
 }
 
 async function processClaim(address) {
-    const statusElement = document.getElementById('status');
     const claimBtn = document.getElementById('claimBtn');
-    
     claimBtn.disabled = true;
-    statusElement.textContent = 'Sending 0.1 MON...';
-    statusElement.className = 'processing';
+    showStatus("Sending 0.1 MON...", 'processing');
 
-    // Simulate blockchain transaction (2 second delay)
+    // Simulate blockchain transaction
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    statusElement.textContent = `Success! 0.1 MON sent to ${address}`;
-    statusElement.className = 'success';
+    showSuccess(`Success! 0.1 MON sent to ${address}`);
     claimBtn.textContent = 'Claimed!';
     
-    // Reset after 5 seconds
     setTimeout(() => {
         claimBtn.disabled = false;
         claimBtn.textContent = 'Claim 0.1 MON';
-        statusElement.textContent = '';
+        clearStatus();
     }, 5000);
+}
+
+// UI Helpers
+function showStatus(message, type) {
+    const statusElement = document.getElementById('status');
+    statusElement.textContent = message;
+    statusElement.className = type;
+}
+
+function showError(message) {
+    showStatus(message, 'error');
+}
+
+function showSuccess(message) {
+    showStatus(message, 'success');
+}
+
+function clearStatus() {
+    document.getElementById('status').textContent = '';
 }
