@@ -1,57 +1,255 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Claim 0.1 MON</title>
-    <!-- Monetag -->
-    <meta name="monetag" content="7ecfed68b028b9d0e4ddfeb9e348888a">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earn MON - Telegram Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; }
-        input { 
-            padding: 12px; 
-            width: 100%; 
-            margin: 10px 0; 
-            border: 1px solid #ddd;
-            border-radius: 4px;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
         }
-        button { 
-            padding: 12px 24px; 
-            color: white; 
-            border: none; 
-            border-radius: 4px;
-            cursor: pointer; 
-            font-size: 16px;
+        
+        .container {
             width: 100%;
-            margin: 5px 0;
+            max-width: 500px;
+            padding: 20px;
+            box-sizing: border-box;
         }
-        #claimBtn { background: #4CAF50; margin-bottom: 10px; }
-        #claimBtn:hover { background: #45a049; }
-        #verifyBtn { background: #2196F3; }
-        #verifyBtn:hover { background: #0b7dda; }
-        #verifySuccessBtn { background: #4CAF50; display: none; }
-        button:disabled { background: #cccccc; }
-        #status { margin-top: 20px; font-weight: bold; }
-        .success { color: green; }
-        .error { color: red; }
-        .processing { color: blue; }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #0088cc;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .earn-card {
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .earn-card h2 {
+            font-size: 20px;
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .earn-card p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .balance {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #0088cc;
+        }
+        
+        .btn {
+            background-color: #0088cc;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .btn:hover {
+            background-color: #0077b3;
+        }
+        
+        .btn:active {
+            background-color: #006699;
+        }
+        
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .history {
+            width: 100%;
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .history h2 {
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .history-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
     </style>
+    <script src='//whephiwums.com/sdk.js' data-zone='9294002' data-sdk='show_9294002'></script>
 </head>
 <body>
     <div class="container">
-        <h2>Claim 0.1 MON</h2>
-        <input type="text" id="evmAddress" placeholder="Enter EVM Address (0x...)" required>
-        <button id="claimBtn">Claim 0.1 MON</button>
-        <button id="verifyBtn">Verify You're Not a Robot</button>
-        <button id="verifySuccessBtn">✓ Verification Passed</button>
-        <p id="status"></p>
+        <div class="header">
+            <h1>Earn MON Tokens</h1>
+            <p>Watch ads and earn cryptocurrency rewards</p>
+        </div>
+        
+        <div class="earn-card">
+            <h2>Your Balance</h2>
+            <div class="balance" id="balance">0 MON</div>
+            <p>Watch an ad to earn MON tokens</p>
+            <button class="btn" id="watchBtn">Watch & Earn 10 MON</button>
+        </div>
+        
+        <div class="history">
+            <h2>Recent Earnings</h2>
+            <div id="historyList">
+                <div class="history-item">
+                    <span>No earnings yet</span>
+                    <span>0 MON</span>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- Ad Script - Placed just before closing body tag -->
-    <script src="https://ligheechoagool.com/88/tag.min.js" data-zone="145827" async data-cfasync="false"></script>
     
-    <!-- Main Application Script -->
-    <script src="script.js"></script>
+    <script>
+        // Initialize Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        // User data
+        let balance = 0;
+        let earningsHistory = [];
+        
+        // DOM elements
+        const balanceElement = document.getElementById('balance');
+        const watchBtn = document.getElementById('watchBtn');
+        const historyList = document.getElementById('historyList');
+        
+        // Load user data from storage
+        function loadUserData() {
+            const savedData = localStorage.getItem('earnMonData');
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                balance = data.balance || 0;
+                earningsHistory = data.earningsHistory || [];
+                updateUI();
+            }
+        }
+        
+        // Save user data to storage
+        function saveUserData() {
+            const data = {
+                balance: balance,
+                earningsHistory: earningsHistory
+            };
+            localStorage.setItem('earnMonData', JSON.stringify(data));
+        }
+        
+        // Update UI with current data
+        function updateUI() {
+            balanceElement.textContent = `${balance} MON`;
+            
+            if (earningsHistory.length > 0) {
+                historyList.innerHTML = '';
+                earningsHistory.slice(0, 5).forEach(earning => {
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    item.innerHTML = `
+                        <span>${new Date(earning.timestamp).toLocaleString()}</span>
+                        <span>+${earning.amount} MON</span>
+                    `;
+                    historyList.appendChild(item);
+                });
+            }
+        }
+        
+        // Reward user with MON tokens
+        function rewardUser() {
+            const amount = 10; // Fixed reward amount
+            balance += amount;
+            
+            // Add to history
+            earningsHistory.unshift({
+                amount: amount,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Keep only last 50 entries
+            if (earningsHistory.length > 50) {
+                earningsHistory = earningsHistory.slice(0, 50);
+            }
+            
+            saveUserData();
+            updateUI();
+            
+            // Show success message
+            tg.showAlert(`You earned ${amount} MON!`);
+        }
+        
+        // Handle watch button click
+        watchBtn.addEventListener('click', function() {
+            watchBtn.disabled = true;
+            watchBtn.textContent = 'Loading ad...';
+            
+            // Show rewarded ad
+            show_9294002().then(() => {
+                // User watched the ad successfully
+                rewardUser();
+            }).catch(e => {
+                // Ad error or user closed ad early
+                tg.showAlert('Please watch the full ad to earn MON.');
+            }).finally(() => {
+                watchBtn.disabled = false;
+                watchBtn.textContent = 'Watch & Earn 10 MON';
+            });
+        });
+        
+        // Initialize in-app ads
+        show_9294002({ 
+            type: 'inApp', 
+            inAppSettings: { 
+                frequency: 2, 
+                capping: 0.1, 
+                interval: 30, 
+                timeout: 5, 
+                everyPage: false 
+            } 
+        });
+        
+        // Load user data when page loads
+        document.addEventListener('DOMContentLoaded', loadUserData);
+    </script>
 </body>
 </html>
