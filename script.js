@@ -1,19 +1,26 @@
-// Check URL parameters on load (for return from Cuty.io)
+// Track verification status in localStorage
+let currentVerificationAddress = '';
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're returning from Cuty.io verification
     const urlParams = new URLSearchParams(window.location.search);
-    const address = urlParams.get('address');
+    const verificationComplete = urlParams.get('verificationComplete');
     
-    if (address && /^0x[a-fA-F0-9]{40}$/.test(address)) {
-        // Add to verified addresses in localStorage
+    if (verificationComplete === 'true' && currentVerificationAddress) {
+        // Add to verified addresses
         const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
-        if (!verifiedAddresses.includes(address)) {
-            verifiedAddresses.push(address);
+        if (!verifiedAddresses.includes(currentVerificationAddress)) {
+            verifiedAddresses.push(currentVerificationAddress);
             localStorage.setItem('verifiedAddresses', JSON.stringify(verifiedAddresses));
         }
         
+        // Clean URL (remove parameters)
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
         // Auto-fill address and update UI
-        document.getElementById('evmAddress').value = address;
-        updateButtonStates(address);
+        document.getElementById('evmAddress').value = currentVerificationAddress;
+        updateButtonStates(currentVerificationAddress);
+        currentVerificationAddress = ''; // Reset
     }
 });
 
@@ -90,9 +97,12 @@ async function startVerification(address) {
     statusElement.className = 'processing';
 
     try {
-        // Create Cuty.io verification link with return URL
+        // Store address being verified
+        currentVerificationAddress = address;
+        
+        // Create Cuty.io verification link with simple return URL
         const API_TOKEN = "0037252eb04b18f83ea817f4f";
-        const RETURN_URL = `https://claimpx.netlify.app/?address=${encodeURIComponent(address)}`;
+        const RETURN_URL = `https://claimpx.netlify.app/?verificationComplete=true`;
         
         const response = await fetch('https://api.cuty.io/full', {
             method: 'POST',
@@ -113,6 +123,7 @@ async function startVerification(address) {
         statusElement.textContent = `Error: ${error.message}`;
         statusElement.className = 'error';
         verifyBtn.disabled = false;
+        currentVerificationAddress = '';
     }
 }
 
