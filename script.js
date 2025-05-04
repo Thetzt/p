@@ -1,34 +1,31 @@
-// Main Claim Page Functionality
-if (document.getElementById('claimButton')) {
-    document.getElementById('claimButton').addEventListener('click', handleClaim);
-}
+// Global state
+let isVerified = false;
+let currentAddress = '';
 
-async function handleClaim() {
-    const evmAddress = document.getElementById('evmAddress').value.trim();
+document.getElementById('verifyBtn').addEventListener('click', startVerification);
+document.getElementById('claimBtn').addEventListener('click', processClaim);
+
+async function startVerification() {
+    const address = document.getElementById('evmAddress').value.trim();
     const statusElement = document.getElementById('status');
-    const claimBtn = document.getElementById('claimButton');
+    const verifyBtn = document.getElementById('verifyBtn');
     
-    // Clear previous status
-    statusElement.className = '';
-    statusElement.textContent = '';
-    
-    // EVM address validation
-    if (!/^0x[a-fA-F0-9]{40}$/.test(evmAddress)) {
+    // Validate address
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
         statusElement.textContent = 'Invalid EVM address format';
         statusElement.className = 'error';
         return;
     }
 
-    // UI feedback
-    claimBtn.disabled = true;
-    claimBtn.textContent = 'Processing...';
-    statusElement.textContent = 'Starting verification...';
+    currentAddress = address;
+    verifyBtn.disabled = true;
+    statusElement.textContent = 'Preparing verification...';
     statusElement.className = 'processing';
 
     try {
-        // Create verification link
+        // Create Cuty.io verification link
         const API_TOKEN = "0037252eb04b18f83ea817f4f";
-        const VERIFICATION_URL = `https://claimpx.netlify.app/verify.html?address=${encodeURIComponent(evmAddress)}`;
+        const VERIFICATION_URL = `https://claimpx.netlify.app/?address=${encodeURIComponent(address)}`;
         
         const response = await fetch('https://api.cuty.io/full', {
             method: 'POST',
@@ -36,7 +33,7 @@ async function handleClaim() {
             body: JSON.stringify({
                 token: API_TOKEN,
                 url: VERIFICATION_URL,
-                title: 'Robot Verification'
+                title: 'Robot Verification for 0.1 MON Claim'
             })
         });
 
@@ -45,43 +42,55 @@ async function handleClaim() {
         const data = await response.json();
         const verificationWindow = window.open(data.data.short_url, '_blank', 'width=500,height=600');
 
-        // Check for verification completion
+        // Check for verification completion every second
         const verificationCheck = setInterval(() => {
-            if (localStorage.getItem('verifiedAddress') === evmAddress) {
+            if (verificationWindow.closed) {
                 clearInterval(verificationCheck);
-                completeClaim(evmAddress);
+                completeVerification();
             }
         }, 1000);
 
     } catch (error) {
         statusElement.textContent = `Error: ${error.message}`;
         statusElement.className = 'error';
-        claimBtn.disabled = false;
-        claimBtn.textContent = 'Try Again';
+        verifyBtn.disabled = false;
     }
 }
 
-async function completeClaim(address) {
+function completeVerification() {
+    isVerified = true;
+    document.getElementById('status').textContent = '✓ Verification passed!';
+    document.getElementById('status').className = 'success';
+    document.getElementById('verifyBtn').style.display = 'none';
+    document.getElementById('claimBtn').style.display = 'block';
+}
+
+async function processClaim() {
+    if (!isVerified) return;
+    
     const statusElement = document.getElementById('status');
-    const claimBtn = document.getElementById('claimButton');
+    const claimBtn = document.getElementById('claimBtn');
     
-    statusElement.textContent = 'Verification complete! Sending 0.1 mon...';
+    claimBtn.disabled = true;
+    statusElement.textContent = 'Sending 0.1 MON...';
     statusElement.className = 'processing';
-    
-    // Simulate blockchain transaction (replace with real API call)
+
+    // Simulate blockchain transaction (2 second delay)
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    statusElement.textContent = 'Success! 0.1 mon sent to your address.';
+    statusElement.textContent = `Success! 0.1 MON sent to ${currentAddress}`;
     statusElement.className = 'success';
     claimBtn.textContent = 'Claimed!';
     
-    // Clear verification status
-    localStorage.removeItem('verifiedAddress');
+    // Reset after 5 seconds
+    setTimeout(() => {
+        isVerified = false;
+        currentAddress = '';
+        document.getElementById('verifyBtn').style.display = 'block';
+        document.getElementById('verifyBtn').disabled = false;
+        document.getElementById('claimBtn').style.display = 'none';
+        document.getElementById('claimBtn').disabled = false;
+        document.getElementById('claimBtn').textContent = 'Claim 0.1 MON';
+        statusElement.textContent = '';
+    }, 5000);
 }
-
-// Listen for verification complete message from popup
-window.addEventListener('message', (event) => {
-    if (event.data.type === 'verificationComplete') {
-        completeClaim(event.data.address);
-    }
-});
