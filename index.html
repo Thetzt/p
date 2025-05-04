@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Earn MON - Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
@@ -16,6 +16,9 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
         
         .container {
@@ -92,6 +95,7 @@
             background-color: #4b5563;
             cursor: not-allowed;
             transform: none;
+            opacity: 0.7;
         }
         
         .history {
@@ -121,7 +125,38 @@
         .history-item:last-child {
             border-bottom: none;
         }
+        
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3d8af7;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Mobile-specific styles */
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .btn {
+                padding: 16px 24px;
+                font-size: 17px;
+            }
+        }
     </style>
+    <!-- Preconnect to ad network for better performance -->
+    <link rel="preconnect" href="https://whephiwums.com">
     <script src='https://whephiwums.com/sdk.js' data-zone='9294002' data-sdk='show_9294002'></script>
 </head>
 <body>
@@ -135,7 +170,9 @@
             <h2>Your Balance</h2>
             <div class="balance" id="balance">0 MON</div>
             <p>Watch an ad to earn MON tokens</p>
-            <button class="btn" id="watchBtn">Watch & Earn 10 MON</button>
+            <button class="btn" id="watchBtn">
+                <span id="btnText">Watch & Earn 10 MON</span>
+            </button>
         </div>
         
         <div class="history">
@@ -150,16 +187,27 @@
     </div>
     
     <script>
+        // Mobile detection
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
         // Initialize Telegram WebApp if in Telegram
         let tg;
         if (window.Telegram && window.Telegram.WebApp) {
             tg = window.Telegram.WebApp;
             tg.expand();
+            
+            // Set viewport for Telegram
+            document.querySelector('meta[name="viewport"]').content = 
+                'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
         } else {
             // Fallback for non-Telegram environment
             tg = {
                 showAlert: function(msg) { alert(msg); },
-                showPopup: function(params) { alert(params.message); }
+                showPopup: function(params) { 
+                    if (params.buttons && params.buttons[0].type === "ok") {
+                        alert(params.message); 
+                    }
+                }
             };
         }
         
@@ -170,6 +218,7 @@
         // DOM elements
         const balanceElement = document.getElementById('balance');
         const watchBtn = document.getElementById('watchBtn');
+        const btnText = document.getElementById('btnText');
         const historyList = document.getElementById('historyList');
         
         // Load user data from storage
@@ -242,43 +291,101 @@
             tg.showAlert(`🎉 You earned ${amount} MON!`);
         }
         
-        // Handle watch button click
-        watchBtn.addEventListener('click', function() {
-            watchBtn.disabled = true;
-            watchBtn.textContent = 'Loading ad...';
-            
-            // Show rewarded ad
-            if (typeof show_9294002 === 'function') {
-                show_9294002().then(() => {
-                    // User watched the ad successfully
-                    rewardUser();
-                }).catch(e => {
-                    // Ad error or user closed ad early
-                    console.error("Ad error:", e);
-                    tg.showAlert('Please watch the full ad to earn MON.');
-                }).finally(() => {
-                    watchBtn.disabled = false;
-                    watchBtn.textContent = 'Watch & Earn 10 MON';
-                });
+        // Show loading state on button
+        function setButtonLoading(isLoading) {
+            if (isLoading) {
+                watchBtn.disabled = true;
+                btnText.innerHTML = `<span class="loader"></span> Loading ad...`;
             } else {
-                tg.showAlert('Ad service is currently unavailable. Please try again later.');
                 watchBtn.disabled = false;
-                watchBtn.textContent = 'Watch & Earn 10 MON';
+                btnText.textContent = 'Watch & Earn 10 MON';
+            }
+        }
+        
+        // Handle watch button click
+        watchBtn.addEventListener('click', async function() {
+            setButtonLoading(true);
+            
+            // Mobile-specific timeout
+            if (isMobile) {
+                setTimeout(() => {
+                    if (watchBtn.disabled) {
+                        tg.showAlert("Ad is taking longer than usual. Please ensure you're not using an ad blocker.");
+                        setButtonLoading(false);
+                    }
+                }, 5000);
+            }
+            
+            try {
+                // Check if ad SDK is loaded
+                if (typeof show_9294002 !== 'function') {
+                    throw new Error('Ad SDK not loaded');
+                }
+                
+                // Mobile-specific ad call
+                if (isMobile) {
+                    // For mobile, we'll try both methods with fallback
+                    try {
+                        // First try the popup method
+                        await show_9294002('pop');
+                    } catch (e) {
+                        console.log("Popup ad failed, trying interstitial:", e);
+                        // Fallback to interstitial
+                        await show_9294002();
+                    }
+                } else {
+                    // Desktop - use standard method
+                    await show_9294002();
+                }
+                
+                // User watched the ad successfully
+                rewardUser();
+            } catch (e) {
+                console.error("Ad error:", e);
+                
+                // Special handling for mobile
+                if (isMobile) {
+                    tg.showPopup({
+                        title: "Ad Issue",
+                        message: "Please try these steps:\n1. Disable ad blockers\n2. Check your internet\n3. Try again",
+                        buttons: [{ type: "ok" }]
+                    });
+                } else {
+                    tg.showAlert('Please watch the full ad to earn MON.');
+                }
+            } finally {
+                setButtonLoading(false);
             }
         });
         
         // Initialize in-app ads
-        if (typeof show_9294002 === 'function') {
-            show_9294002({ 
-                type: 'inApp', 
-                inAppSettings: { 
-                    frequency: 2, 
-                    capping: 0.1, 
-                    interval: 30, 
-                    timeout: 5, 
-                    everyPage: false 
-                } 
-            });
+        function initAds() {
+            if (typeof show_9294002 === 'function') {
+                show_9294002({ 
+                    type: 'inApp', 
+                    inAppSettings: { 
+                        frequency: 2, 
+                        capping: 0.1, 
+                        interval: 30, 
+                        timeout: 5, 
+                        everyPage: false 
+                    } 
+                });
+            }
+        }
+        
+        // Mobile-specific ad SDK loading
+        if (isMobile) {
+            // Create a new script element to force reload the SDK
+            const adScript = document.createElement('script');
+            adScript.src = 'https://whephiwums.com/sdk.js';
+            adScript.setAttribute('data-zone', '9294002');
+            adScript.setAttribute('data-sdk', 'show_9294002');
+            adScript.onload = initAds;
+            document.body.appendChild(adScript);
+        } else {
+            // Standard initialization for desktop
+            document.addEventListener('DOMContentLoaded', initAds);
         }
         
         // Load user data when page loads
@@ -290,7 +397,9 @@
                 console.error("Ad SDK error:", e);
                 tg.showPopup({
                     title: "Ad Error",
-                    message: "Could not load ads. Please try again later.",
+                    message: isMobile 
+                        ? "Mobile ads not loading. Try refreshing or check ad blockers." 
+                        : "Could not load ads. Please try again later.",
                     buttons: [{ type: "ok" }]
                 });
             }
