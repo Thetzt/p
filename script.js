@@ -1,8 +1,33 @@
 // Initialize verification state
 let pendingVerificationAddress = '';
 
+// Generate device fingerprint
+function getDeviceFingerprint() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(125, 1, 62, 20);
+    ctx.fillStyle = '#069';
+    ctx.fillText('device-fingerprint', 2, 15);
+    return canvas.toDataURL();
+}
+
+// Get client IP (using a free API)
+async function getClientIP() {
+    try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip;
+    } catch (error) {
+        console.error('Error getting IP:', error);
+        return null;
+    }
+}
+
 // Check verification status when page loads
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Check if returning from verification
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('verificationComplete')) {
@@ -11,15 +36,15 @@ document.addEventListener('DOMContentLoaded', function() {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    // Check for pending verification
-    checkPendingVerification();
+    // Initialize device fingerprint in localStorage
+    if (!localStorage.getItem('deviceFingerprint')) {
+        localStorage.setItem('deviceFingerprint', getDeviceFingerprint());
+    }
 });
 
 function checkPendingVerification() {
     const pendingAddress = localStorage.getItem('pendingVerificationAddress');
     if (pendingAddress) {
-        // If we have a pending address but no verificationComplete flag,
-        // it means verification was interrupted
         localStorage.removeItem('pendingVerificationAddress');
     }
 }
@@ -67,7 +92,7 @@ document.getElementById('evmAddress').addEventListener('input', function() {
 });
 
 // Verify button handler
-document.getElementById('verifyBtn').addEventListener('click', function() {
+document.getElementById('verifyBtn').addEventListener('click', async function() {
     const address = document.getElementById('evmAddress').value.trim();
     
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
@@ -76,10 +101,90 @@ document.getElementById('verifyBtn').addEventListener('click', function() {
         return;
     }
 
-    startVerification(address);
+    // First check IP and device
+    await checkIPAndDevice(address);
 });
 
-// Claim button handler
+async function checkIPAndDevice(address) {
+    const statusElement = document.getElementById('status');
+    const verifyBtn = document.getElementById('verifyBtn');
+    
+    verifyBtn.disabled = true;
+    statusElement.textContent = 'Checking your device...';
+    statusElement.className = 'processing';
+
+    try {
+        // Get current IP and device fingerprint
+        const [currentIP, currentDevice] = await Promise.all([
+            getClientIP(),
+            localStorage.getItem('deviceFingerprint')
+        ]);
+
+        // Get stored verification records
+        const verificationRecords = JSON.parse(localStorage.getItem('verificationRecords')) || {};
+        
+        // Check if this IP/device already verified an address
+        if (verificationRecords[currentIP] || verificationRecords[currentDevice]) {
+            const existingAddress = verificationRecords[currentIP] || verificationRecords[currentDevice];
+            if (existingAddress !== address) {
+                throw new Error('This device/IP has already verified a different address');
+            }
+        }
+
+        // If checks pass, proceed to Cuty.io verification
+        await startVerification(address, currentIP, currentDevice);
+
+    } catch (error) {
+        statusElement.textContent = `Verification failed: ${error.message}`;
+        statusElement.className = 'error';
+        verifyBtn.disabled = false;
+    }
+}
+
+async function startVerification(address, ip, device) {
+    const statusElement = document.getElementById('status');
+    
+    statusElement.textContent = 'Starting robot verification...';
+    statusElement.className = 'processing';
+
+    try {
+        // Store the address we're verifying
+        localStorage.setItem('pendingVerificationAddress', address);
+        pendingVerificationAddress = address;
+
+        const API_TOKEN = "0037252eb04b18f83ea817f4f";
+        const RETURN_URL = `https://claimpx.netlify.app/?verificationComplete=true`;
+        
+        const response = await fetch('https://api.cuty.io/full', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: API_TOKEN,
+                url: RETURN_URL,
+                title: 'Robot Verification for 0.1 MON Claim'
+            })
+        });
+
+        if (!response.ok) throw new Error('Failed to create verification link');
+
+        const data = await response.json();
+        
+        // Store verification record before redirecting
+        const verificationRecords = JSON.parse(localStorage.getItem('verificationRecords')) || {};
+        verificationRecords[ip] = address;
+        verificationRecords[device] = address;
+        localStorage.setItem('verificationRecords', JSON.stringify(verificationRecords));
+        
+        window.location.href = data.data.short_url;
+
+    } catch (error) {
+        statusElement.textContent = `Error: ${error.message}`;
+        statusElement.className = 'error';
+        localStorage.removeItem('pendingVerificationAddress');
+    }
+}
+
+// Claim button handler (same as before)
 document.getElementById('claimBtn').addEventListener('click', function() {
     const address = document.getElementById('evmAddress').value.trim();
     const verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
@@ -104,45 +209,6 @@ document.getElementById('claimBtn').addEventListener('click', function() {
 
     processClaim(address);
 });
-
-async function startVerification(address) {
-    const statusElement = document.getElementById('status');
-    const verifyBtn = document.getElementById('verifyBtn');
-    
-    verifyBtn.disabled = true;
-    statusElement.textContent = 'Preparing verification...';
-    statusElement.className = 'processing';
-
-    try {
-        // Store the address we're verifying
-        localStorage.setItem('pendingVerificationAddress', address);
-        pendingVerificationAddress = address;
-
-        const API_TOKEN = "0037252eb04b18f83ea817f4f";
-        const RETURN_URL = `https://claimpx.netlify.app/?verificationComplete=true`;
-        
-        const response = await fetch('https://api.cuty.io/full', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                token: API_TOKEN,
-                url: RETURN_URL,
-                title: 'Robot Verification for 0.1 MON Claim'
-            })
-        });
-
-        if (!response.ok) throw new Error('Failed to create verification link');
-
-        const data = await response.json();
-        window.location.href = data.data.short_url;
-
-    } catch (error) {
-        statusElement.textContent = `Error: ${error.message}`;
-        statusElement.className = 'error';
-        verifyBtn.disabled = false;
-        localStorage.removeItem('pendingVerificationAddress');
-    }
-}
 
 async function processClaim(address) {
     const statusElement = document.getElementById('status');
