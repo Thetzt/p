@@ -1,5 +1,5 @@
 // Configuration
-const CUTY_API_KEY = "0037252eb04b18f83ea817f4f";
+const CUTY_API_KEY = "0037252eb04b18f83ea817f4f364deae4c7d1a9f";
 const RETURN_URL = "https://claimpx.netlify.app/?verificationComplete=true";
 
 // State management
