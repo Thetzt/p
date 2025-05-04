@@ -1,69 +1,41 @@
-// Global state variables
-let telegramUser = null;
-let pendingVerificationAddress = '';
+// Global state
 let verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
 
-// Initialize the application
+// Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if user is already logged in
-    telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+    // Only run on claim page
+    if (!document.getElementById('claimBtn')) return;
     
-    // If coming back from verification
+    // Check URL for verification completion
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('verificationComplete')) {
         handleVerificationReturn();
+        // Clean the URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    // If logged in, show claim section
-    if (telegramUser) {
-        showClaimSection();
-    } else {
-        // Initialize Telegram login widget
-        initTelegramLogin();
-    }
+    // Set up event listeners
+    setupEventListeners();
 });
 
-// Telegram login handler
-function onTelegramAuth(user) {
-    if (!user || !user.id) {
-        showError("Telegram login failed. Please try again.");
-        return;
-    }
-    
-    // Store user data
-    telegramUser = user;
-    localStorage.setItem('telegramUser', JSON.stringify(user));
-    
-    // Show claim section
-    showClaimSection();
+function setupEventListeners() {
+    // Address input handler
+    document.getElementById('evmAddress').addEventListener('input', function() {
+        const address = this.value.trim();
+        updateButtonStates(address);
+    });
+
+    // Verify button handler
+    document.getElementById('verifyBtn').addEventListener('click', verifyAddress);
+
+    // Claim button handler
+    document.getElementById('claimBtn').addEventListener('click', processClaim);
 }
 
-function initTelegramLogin() {
-    const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js?19';
-    script.setAttribute('data-telegram-login', 'uxxucc_bot');
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-    script.setAttribute('data-request-access', 'write');
-    document.body.appendChild(script);
-}
-
-function showClaimSection() {
-    document.getElementById('telegramAuth').classList.add('hidden');
-    document.getElementById('claimSection').classList.remove('hidden');
-    
-    // Check for pending verification
-    checkPendingVerification();
-}
-
-function checkPendingVerification() {
-    const pendingAddress = localStorage.getItem('pendingVerificationAddress');
-    if (pendingAddress && !verifiedAddresses.includes(pendingAddress)) {
-        // Verification was interrupted
-        localStorage.removeItem('pendingVerificationAddress');
-        showError("Previous verification was interrupted. Please verify again.");
-    }
+function updateButtonStates(address) {
+    const isVerified = verifiedAddresses.includes(address);
+    document.getElementById('verifyBtn').style.display = isVerified ? 'none' : 'block';
+    document.getElementById('verifySuccessBtn').style.display = isVerified ? 'block' : 'none';
 }
 
 function handleVerificationReturn() {
@@ -78,69 +50,27 @@ function handleVerificationReturn() {
         // Update UI
         document.getElementById('evmAddress').value = pendingAddress;
         updateButtonStates(pendingAddress);
+        showStatus('Verification successful!', 'success');
+        
+        // Clear pending verification
         localStorage.removeItem('pendingVerificationAddress');
-        showSuccess("Verification successful!");
     }
 }
 
-function updateButtonStates(address) {
-    const isVerified = verifiedAddresses.includes(address);
-    document.getElementById('verifyBtn').style.display = isVerified ? 'none' : 'block';
-    document.getElementById('verifySuccessBtn').style.display = isVerified ? 'block' : 'none';
-}
-
-// Event Listeners
-document.getElementById('evmAddress').addEventListener('input', function() {
-    const address = this.value.trim();
-    if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        updateButtonStates(address);
-    } else {
-        document.getElementById('verifyBtn').style.display = 'none';
-        document.getElementById('verifySuccessBtn').style.display = 'none';
-    }
-});
-
-document.getElementById('verifyBtn').addEventListener('click', function() {
+async function verifyAddress() {
     const address = document.getElementById('evmAddress').value.trim();
     
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        showError("Please enter a valid EVM address");
+        showStatus('Please enter a valid EVM address', 'error');
         return;
     }
 
-    startVerification(address);
-});
-
-document.getElementById('claimBtn').addEventListener('click', function() {
-    const address = document.getElementById('evmAddress').value.trim();
-    
-    if (!address) {
-        showError("Please enter your EVM address");
-        return;
-    }
-    
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        showError("Invalid EVM address format");
-        return;
-    }
-    
-    if (!verifiedAddresses.includes(address)) {
-        showError("Please complete robot verification first");
-        return;
-    }
-
-    processClaim(address);
-});
-
-// Core Functions
-async function startVerification(address) {
     const verifyBtn = document.getElementById('verifyBtn');
     verifyBtn.disabled = true;
-    showStatus("Preparing verification...", 'processing');
+    showStatus('Preparing verification...', 'processing');
 
     try {
         localStorage.setItem('pendingVerificationAddress', address);
-        pendingVerificationAddress = address;
 
         const API_TOKEN = "0037252eb04b18f83ea817f4f";
         const RETURN_URL = `${window.location.origin}${window.location.pathname}?verificationComplete=true`;
@@ -151,7 +81,7 @@ async function startVerification(address) {
             body: JSON.stringify({
                 token: API_TOKEN,
                 url: RETURN_URL,
-                title: 'Robot Verification for 0.1 MON Claim'
+                title: 'MON Claim Verification'
             })
         });
 
@@ -161,23 +91,41 @@ async function startVerification(address) {
         window.location.href = data.data.short_url;
 
     } catch (error) {
-        showError(`Error: ${error.message}`);
-        verifyBtn.disabled = false;
+        showStatus(`Error: ${error.message}`, 'error');
+        document.getElementById('verifyBtn').disabled = false;
         localStorage.removeItem('pendingVerificationAddress');
     }
 }
 
-async function processClaim(address) {
+async function processClaim() {
+    const address = document.getElementById('evmAddress').value.trim();
+    
+    if (!address) {
+        showStatus('Please enter your EVM address', 'error');
+        return;
+    }
+    
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        showStatus('Invalid EVM address format', 'error');
+        return;
+    }
+    
+    if (!verifiedAddresses.includes(address)) {
+        showStatus('Please complete verification first', 'error');
+        return;
+    }
+
     const claimBtn = document.getElementById('claimBtn');
     claimBtn.disabled = true;
-    showStatus("Sending 0.1 MON...", 'processing');
+    showStatus('Processing your claim...', 'processing');
 
     // Simulate blockchain transaction
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    showSuccess(`Success! 0.1 MON sent to ${address}`);
+    showStatus(`Success! 0.1 MON sent to ${address}`, 'success');
     claimBtn.textContent = 'Claimed!';
     
+    // Reset after 5 seconds
     setTimeout(() => {
         claimBtn.disabled = false;
         claimBtn.textContent = 'Claim 0.1 MON';
@@ -185,21 +133,11 @@ async function processClaim(address) {
     }, 5000);
 }
 
-// UI Helpers
 function showStatus(message, type) {
     const statusElement = document.getElementById('status');
     statusElement.textContent = message;
     statusElement.className = type;
 }
 
-function showError(message) {
-    showStatus(message, 'error');
-}
-
-function showSuccess(message) {
-    showStatus(message, 'success');
-}
-
 function clearStatus() {
-    document.getElementById('status').textContent = '';
-}
+    document.getElementById('
