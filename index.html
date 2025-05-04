@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Claim 0.1 mon</title>
+    <title>Claim 0.1 MON</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
         .container { max-width: 500px; margin: 0 auto; }
@@ -14,14 +14,18 @@
         }
         button { 
             padding: 12px 24px; 
-            background: #4CAF50; 
             color: white; 
             border: none; 
             border-radius: 4px;
             cursor: pointer; 
             font-size: 16px;
             width: 100%;
+            margin: 5px 0;
         }
+        #verifyBtn { background: #2196F3; }
+        #verifyBtn:hover { background: #0b7dda; }
+        #claimBtn { background: #4CAF50; display: none; }
+        #claimBtn:hover { background: #45a049; }
         button:disabled { background: #cccccc; }
         #status { margin-top: 20px; font-weight: bold; }
         .success { color: green; }
@@ -31,11 +35,13 @@
 </head>
 <body>
     <div class="container">
-        <h2>Claim 0.1 mon</h2>
+        <h2>Claim 0.1 MON</h2>
         <input type="text" id="evmAddress" placeholder="Enter EVM Address (0x...)" required>
-        <button id="claimButton">Claim Now</button>
+        <button id="verifyBtn">Verify You're Not a Robot</button>
+        <button id="claimBtn">Claim 0.1 MON</button>
         <p id="status"></p>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
