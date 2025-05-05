@@ -241,7 +241,7 @@ async function verifyAddress() {
             `${window.location.origin}${window.location.pathname}?verificationComplete=true`
         );
         
-        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerify`;
+        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerification`;
         
         const response = await fetch(apiUrl);
         
