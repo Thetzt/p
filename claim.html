@@ -82,6 +82,16 @@
             cursor: pointer;
             width: 100%;
             font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .logout-btn img {
+            width: 14px;
+            height: 14px;
+            filter: brightness(0) invert(1);
         }
         
         .content {
@@ -266,7 +276,10 @@
             <img id="userAvatar" src="" alt="Profile">
         </button>
         <div class="logout-popup" id="logoutPopup">
-            <button class="logout-btn" id="logoutBtn">Logout</button>
+            <button class="logout-btn" id="logoutBtn">
+                <img src="https://telegram.org/img/t_logo.png" alt="Logout">
+                Logout
+            </button>
         </div>
 
         <div class="content">
@@ -321,7 +334,7 @@
             rpcUrl: 'https://testnet-rpc.monad.xyz',
             chainId: 10143,
             faucetAmount: '0.1', // MON tokens per request
-            explorerUrl: 'https://explorer.monad.xyz'
+            explorerUrl: 'https://testnet.monadexplorer.com'
         };
 
         // Initialize when DOM is loaded
@@ -441,7 +454,8 @@
                 return;
             }
             
-            const userKey = address.toLowerCase();
+            const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+            const userKey = telegramUser.id.toString();
             const userRequests = JSON.parse(localStorage.getItem('userRequests')) || {};
             const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
             
@@ -605,11 +619,23 @@
                 
                 const wallet = new ethers.Wallet(config.privateKey, provider);
                 
+                // Check faucet balance first
+                const faucetBalance = await provider.getBalance(wallet.address);
+                if (ethers.utils.formatEther(faucetBalance) < config.faucetAmount) {
+                    throw new Error('Faucet has insufficient funds');
+                }
+                
                 // Send transaction
                 const tx = await wallet.sendTransaction({
                     to: address,
                     value: ethers.utils.parseEther(config.faucetAmount)
                 });
+                
+                console.log('Transaction submitted:', tx.hash);
+                
+                // Wait for transaction to be mined
+                const receipt = await tx.wait();
+                console.log('Transaction mined:', receipt.transactionHash);
                 
                 // Record the transaction
                 const txRecord = {
@@ -640,6 +666,8 @@
             } catch (error) {
                 console.error('Transaction error:', error);
                 let errorMsg = 'Transaction failed. MON not sent. Please try again.';
+                let debugInfo = '';
+                
                 if (error.message.includes('insufficient funds')) {
                     errorMsg = 'Faucet has insufficient funds. MON not sent.';
                 } else if (error.message.includes('underpriced')) {
@@ -647,7 +675,15 @@
                 } else if (error.message.includes('rejected')) {
                     errorMsg = 'Transaction rejected. MON not sent.';
                 }
-                showOutput(errorMsg, 'error', 4000);
+                
+                // Add debug info for transaction errors
+                if (error.transactionHash) {
+                    debugInfo = `\n\nTX Hash: ${error.transactionHash}\nExplore: ${config.explorerUrl}/tx/${error.transactionHash}`;
+                } else if (error.receipt && error.receipt.transactionHash) {
+                    debugInfo = `\n\nTX Hash: ${error.receipt.transactionHash}\nExplore: ${config.explorerUrl}/tx/${error.receipt.transactionHash}`;
+                }
+                
+                showOutput(`${errorMsg}${debugInfo}`, 'error', 6000);
             } finally {
                 requestBtn.disabled = false;
                 setTimeout(() => {
