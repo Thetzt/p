@@ -9,13 +9,13 @@ const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
     chainId: 10143,
-    faucetAmount: '0.1', // MON tokens per request
-    explorerUrl: 'https://testnet.monadexplorer.com'
+    faucetAmount: '0.1',
+    explorerUrl: 'https://testnet.monadexplorer.com',
+    verificationExpiryTime: 120000 // 2 minutes in ms
 };
 
 // Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', async function() {
-    // Only run on claim page
     if (!document.getElementById('requestButton')) return;
     
     // Check authentication
@@ -25,7 +25,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         return;
     }
 
-    // Set profile avatar
+    // Set up profile
+    setupProfile(telegramUser);
+
+    // Check URL for verification completion
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('verificationComplete')) {
+        handleVerificationReturn();
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Initialize UI
+    updateUI();
+    setupEventListeners();
+});
+
+function setupProfile(telegramUser) {
     const userAvatar = document.getElementById('userAvatar');
     if (telegramUser.photo_url) {
         userAvatar.src = telegramUser.photo_url;
@@ -59,34 +74,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         localStorage.removeItem('userTransactions');
         window.location.href = 'index.html';
     });
-
-    // Check URL for verification completion
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('verificationComplete')) {
-        handleVerificationReturn();
-        // Clean the URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-    
-    // Initialize UI
-    updateUI();
-    
-    // Set up event listeners
-    setupEventListeners();
-});
+}
 
 function setupEventListeners() {
-    // Address input handler
     document.getElementById('address').addEventListener('input', function() {
         const address = this.value.trim();
         updateButtonStates(address);
         updateUI();
     });
 
-    // Verify button handler
     document.getElementById('verifyBtn').addEventListener('click', verifyAddress);
-
-    // Request button handler
     document.getElementById('requestButton').addEventListener('click', processRequest);
 }
 
@@ -105,10 +102,8 @@ function updateButtonStates(address) {
 
 function isAddressVerified(address) {
     if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) return false;
-    
     if (!verifiedAddresses.includes(address)) return false;
     
-    // Check if verification is expired (2 minutes)
     const expiryTime = verificationExpiry[address] || 0;
     return Date.now() < expiryTime;
 }
@@ -129,7 +124,6 @@ function updateRequestStatus(address) {
     const userKey = telegramUser.id.toString();
     const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
     
-    // Reset if it's a new day
     if (userTodayRequests.date !== today) {
         userTodayRequests.date = today;
         userTodayRequests.count = 0;
@@ -163,7 +157,6 @@ function renderActivityFeed() {
         return;
     }
     
-    // Sort by timestamp (newest first)
     userTx.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     
     userTx.forEach(tx => {
@@ -200,23 +193,18 @@ function renderActivityFeed() {
 function handleVerificationReturn() {
     const pendingAddress = localStorage.getItem('pendingVerificationAddress');
     if (pendingAddress && /^0x[a-fA-F0-9]{40}$/.test(pendingAddress)) {
-        // Mark address as verified with expiry
         if (!verifiedAddresses.includes(pendingAddress)) {
             verifiedAddresses.push(pendingAddress);
             localStorage.setItem('verifiedAddresses', JSON.stringify(verifiedAddresses));
         }
         
-        verificationExpiry[pendingAddress] = Date.now() + 120000; // 2 minutes expiry
+        verificationExpiry[pendingAddress] = Date.now() + config.verificationExpiryTime;
         localStorage.setItem('verificationExpiry', JSON.stringify(verificationExpiry));
         
-        // Update UI
         document.getElementById('address').value = pendingAddress;
         updateUI();
         
-        // Clear pending verification
         localStorage.removeItem('pendingVerificationAddress');
-        
-        // Show success message
         showOutput('Verification successful!', 'success', 4000);
     }
 }
@@ -261,10 +249,10 @@ async function verifyAddress() {
     }
 }
 
-
 async function processRequest() {
     const address = document.getElementById('address').value.trim();
     
+    // Validation checks
     if (!address) {
         showOutput('Please enter your MON address', 'error', 4000);
         return;
@@ -282,14 +270,13 @@ async function processRequest() {
         return;
     }
 
-    // Check daily limit
+    // Daily limit check
     const today = new Date().toDateString();
     const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     const userKey = telegramUser.id.toString();
     const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
     
     if (userTodayRequests.date !== today) {
-        // Reset counter for new day
         userTodayRequests.date = today;
         userTodayRequests.count = 0;
     }
@@ -304,130 +291,129 @@ async function processRequest() {
     showOutput('Processing your request...', 'info');
 
     try {
-        // Initialize provider and wallet with better error handling
-        let provider, wallet;
-        try {
-            provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
-                chainId: config.chainId,
-                name: 'monad-testnet'
-            });
-            wallet = new ethers.Wallet(config.privateKey, provider);
-        } catch (initError) {
-            console.error('Initialization error:', initError);
-            throw new Error('Failed to connect to blockchain network');
-        }
-
-        // Check faucet balance first with better formatting
-        let faucetBalance;
-        try {
-            faucetBalance = await provider.getBalance(wallet.address);
-            const formattedBalance = ethers.utils.formatEther(faucetBalance);
-            console.log(`Faucet balance: ${formattedBalance} MON`);
-            
-            if (parseFloat(formattedBalance) < parseFloat(config.faucetAmount)) {
-                throw new Error(`Faucet has insufficient funds (${formattedBalance} MON available)`);
-            }
-        } catch (balanceError) {
-            console.error('Balance check error:', balanceError);
-            throw new Error(balanceError.message);
-        }
-
-        // Prepare transaction with proper gas settings
-        const txParams = {
-            to: address,
-            value: ethers.utils.parseEther(config.faucetAmount),
-            gasLimit: 21000, // Standard gas limit for simple transfers
-            gasPrice: await provider.getGasPrice() // Current network gas price
-        };
-
-        // Send transaction with enhanced error handling
-        let tx, receipt;
-        try {
-            tx = await wallet.sendTransaction(txParams);
-            showOutput(`Transaction submitted: ${tx.hash}\nWaiting for confirmation...`, 'info', 8000);
-            console.log('Transaction submitted:', tx.hash);
-            
-            // Wait for transaction to be mined with timeout
-            receipt = await Promise.race([
-                tx.wait(),
-                new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Transaction timeout after 60 seconds')), 60000)
-            ]);
-            
-            console.log('Transaction mined:', receipt.transactionHash);
-            
-            if (receipt.status === 0) {
-                throw new Error('Transaction failed (status 0)');
-            }
-        } catch (txError) {
-            console.error('Transaction error:', txError);
-            let errorMsg = 'Transaction failed. MON not sent. Please try again.';
-            
-            if (txError.message.includes('insufficient funds')) {
-                errorMsg = 'Faucet has insufficient funds. MON not sent.';
-            } else if (txError.message.includes('underpriced')) {
-                errorMsg = 'Network congestion. MON not sent. Please try again.';
-            } else if (txError.message.includes('rejected')) {
-                errorMsg = 'Transaction rejected. MON not sent.';
-            } else if (txError.message.includes('timeout')) {
-                errorMsg = 'Transaction taking too long. Check later.';
-            }
-            
-            if (tx && tx.hash) {
-                errorMsg += `\n\nTX Hash: ${tx.hash}\nExplore: ${config.explorerUrl}/tx/${tx.hash}`;
-            }
-            
-            throw new Error(errorMsg);
-        }
-
-        // Record the transaction
-        const txRecord = {
-            hash: tx.hash,
-            to: address,
-            amount: config.faucetAmount,
-            timestamp: new Date().toISOString(),
-            status: receipt.status === 1 ? 'success' : 'failed'
-        };
+        // Initialize blockchain connection
+        const { provider, wallet } = await initBlockchainConnection();
         
-        // Update transaction history
-        const userTx = userTransactions[userKey] || [];
-        userTx.push(txRecord);
-        userTransactions[userKey] = userTx;
-        localStorage.setItem('userTransactions', JSON.stringify(userTransactions));
+        // Check balance and send transaction
+        const { tx, receipt } = await sendTransaction(provider, wallet, address);
         
-        // Update request count only if transaction succeeded
+        // Record successful transaction
+        recordTransaction(userKey, address, tx.hash, receipt.status);
+        
+        // Update request count
         if (receipt.status === 1) {
             userTodayRequests.count++;
             userRequests[userKey] = userTodayRequests;
             localStorage.setItem('userRequests', JSON.stringify(userRequests));
         }
         
-        // Update UI
+        // Update UI and show success
         updateUI();
-        
-        if (receipt.status === 1) {
-            showOutput(`Success! 0.1 MON sent to ${address}\n\nTX Hash: ${tx.hash}\nExplore: ${config.explorerUrl}/tx/${tx.hash}`, 'success', 8000);
-            requestBtn.textContent = 'Requested!';
-        } else {
-            throw new Error('Transaction failed (status 0)');
-        }
-        
+        showSuccessMessage(address, tx.hash, requestBtn);
+
     } catch (error) {
-        console.error('Process error:', error);
-        showOutput(error.message, 'error', 8000);
+        handleTransactionError(error, requestBtn);
     } finally {
-        requestBtn.disabled = false;
-        setTimeout(() => {
-            requestBtn.textContent = 'Request 0.1 MON';
-        }, 4000);
+        resetRequestButton(requestBtn);
     }
 }
 
+async function initBlockchainConnection() {
+    try {
+        const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
+            chainId: config.chainId,
+            name: 'monad-testnet'
+        });
+        const wallet = new ethers.Wallet(config.privateKey, provider);
+        return { provider, wallet };
+    } catch (error) {
+        console.error('Blockchain connection error:', error);
+        throw new Error('Failed to connect to blockchain network');
+    }
+}
 
+async function sendTransaction(provider, wallet, address) {
+    // Check faucet balance
+    const faucetBalance = await provider.getBalance(wallet.address);
+    const formattedBalance = ethers.utils.formatEther(faucetBalance);
+    
+    if (parseFloat(formattedBalance) < parseFloat(config.faucetAmount)) {
+        throw new Error(`Faucet has insufficient funds (${formattedBalance} MON available)`);
+    }
 
+    // Prepare transaction
+    const txParams = {
+        to: address,
+        value: ethers.utils.parseEther(config.faucetAmount),
+        gasLimit: 21000,
+        gasPrice: await provider.getGasPrice()
+    };
 
+    // Send and wait for transaction
+    const tx = await wallet.sendTransaction(txParams);
+    showOutput(`Transaction submitted: ${tx.hash}\nWaiting for confirmation...`, 'info', 8000);
+    
+    const receipt = await Promise.race([
+        tx.wait(),
+        new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Transaction timeout after 60 seconds')), 60000)
+    ]);
+    
+    if (receipt.status === 0) {
+        throw new Error('Transaction failed (status 0)');
+    }
 
+    return { tx, receipt };
+}
 
+function recordTransaction(userKey, address, txHash, status) {
+    const txRecord = {
+        hash: txHash,
+        to: address,
+        amount: config.faucetAmount,
+        timestamp: new Date().toISOString(),
+        status: status === 1 ? 'success' : 'failed'
+    };
+    
+    const userTx = userTransactions[userKey] || [];
+    userTx.push(txRecord);
+    userTransactions[userKey] = userTx;
+    localStorage.setItem('userTransactions', JSON.stringify(userTransactions));
+}
+
+function showSuccessMessage(address, txHash, requestBtn) {
+    const successMsg = `Success! 0.1 MON sent to ${address}\n\nTX Hash: ${txHash}\nExplore: ${config.explorerUrl}/tx/${txHash}`;
+    showOutput(successMsg, 'success', 8000);
+    requestBtn.textContent = 'Requested!';
+}
+
+function handleTransactionError(error, requestBtn) {
+    console.error('Transaction error:', error);
+    let errorMsg = 'Transaction failed. MON not sent. Please try again.';
+    
+    if (error.message.includes('insufficient funds')) {
+        errorMsg = 'Faucet has insufficient funds. MON not sent.';
+    } else if (error.message.includes('underpriced')) {
+        errorMsg = 'Network congestion. MON not sent. Please try again.';
+    } else if (error.message.includes('rejected')) {
+        errorMsg = 'Transaction rejected. MON not sent.';
+    } else if (error.message.includes('timeout')) {
+        errorMsg = 'Transaction taking too long. Check later.';
+    }
+    
+    if (error.transactionHash) {
+        errorMsg += `\n\nTX Hash: ${error.transactionHash}\nExplore: ${config.explorerUrl}/tx/${error.transactionHash}`;
+    }
+    
+    showOutput(errorMsg, 'error', 8000);
+}
+
+function resetRequestButton(requestBtn) {
+    requestBtn.disabled = false;
+    setTimeout(() => {
+        requestBtn.textContent = 'Request 0.1 MON';
+    }, 4000);
+}
 
 function showOutput(message, type, duration = 4000) {
     const outputData = document.getElementById('outputData');
@@ -442,7 +428,6 @@ function showOutput(message, type, duration = 4000) {
     
     outputData.style.display = 'block';
     
-    // Hide after duration
     if (duration > 0) {
         setTimeout(() => {
             outputData.style.display = 'none';
