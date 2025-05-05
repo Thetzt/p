@@ -1,43 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Claim 0.1 mon</title>
+    <title>Login | MON Faucet</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; }
-        input { 
-            padding: 12px; 
-            width: 100%; 
-            margin: 10px 0; 
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
         }
-        button { 
-            padding: 12px 24px; 
-            background: #4CAF50; 
-            color: white; 
-            border: none; 
-            border-radius: 4px;
-            cursor: pointer; 
-            font-size: 16px;
+        .login-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 30px;
             width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
-        button:hover { background: #45a049; }
-        #status { 
-            margin-top: 20px;
-            font-weight: bold;
+        h1 {
+            color: #88d3ce;
+            margin-bottom: 10px;
+        }
+        p {
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 30px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Request 0.1 mon</h2>
-        <input type="text" id="evmAddress" placeholder="Enter your EVM Address (0x...)" required>
-        <button id="claimButton">Claim Now</button>
-        <p id="status"></p>
+    <div class="login-container">
+        <h1>MON Faucet</h1>
+        <p>Login with Telegram to request 0.1 MON tokens</p>
+        
+        <script async src="https://telegram.org/js/telegram-widget.js?19" 
+                data-telegram-login="uxxucc_bot" 
+                data-size="large" 
+                data-onauth="onTelegramAuth(user)" 
+                data-request-access="write"></script>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        function onTelegramAuth(user) {
+            if (user) {
+                localStorage.setItem('telegramUser', JSON.stringify(user));
+                window.location.href = 'claim.html';
+            }
+        }
+    </script>
 </body>
 </html>
