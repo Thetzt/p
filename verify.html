@@ -1,38 +1,39 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Verification Complete</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 40px; }
-        .success { color: green; font-size: 24px; margin: 20px 0; }
-        .address { background: #f5f5f5; padding: 10px; margin: 20px auto; max-width: 500px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Verification Complete</h1>
-        <div class="success">✓ Robot verification passed</div>
-        
-        <p>Your EVM address:</p>
-        <div class="address" id="evmAddress"></div>
-        
-        <p>You can now close this window and return to the claim page.</p>
-    </div>
+async function verifyAddress() {
+    const address = document.getElementById('address').value.trim();
+    
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        showOutput('Please enter a valid EVM address', 'error', 4000);
+        return;
+    }
 
-    <script>
-        // Store verification status in localStorage
-        const urlParams = new URLSearchParams(window.location.search);
-        const address = urlParams.get('address');
+    const verifyBtn = document.getElementById('verifyBtn');
+    verifyBtn.disabled = true;
+    showOutput('Preparing verification...', 'info');
+
+    try {
+        localStorage.setItem('pendingVerificationAddress', address);
+
+        const RETURN_URL = encodeURIComponent(
+            `${window.location.origin}/renew.html`
+        );
         
-        if (address) {
-            document.getElementById('evmAddress').textContent = address;
-            localStorage.setItem('verifiedAddress', address);
-            
-            // Optional: Notify the main window
-            if (window.opener) {
-                window.opener.postMessage({ type: 'verificationComplete', address }, '*');
-            }
+        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerify`;
+        
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) throw new Error('Failed to create verification link');
+
+        const data = await response.json();
+        
+        if (data.status === 'error') {
+            throw new Error(data.message || 'Verification service error');
         }
-    </script>
-</body>
-</html>
+
+        window.location.href = data.shortenedUrl;
+
+    } catch (error) {
+        showOutput(`Error: ${error.message}`, 'error', 4000);
+        verifyBtn.disabled = false;
+        localStorage.removeItem('pendingVerificationAddress');
+    }
+}
