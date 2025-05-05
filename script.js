@@ -236,7 +236,7 @@ async function verifyAddress() {
     try {
         localStorage.setItem('pendingVerificationAddress', address);
 
-        const API_TOKEN = "0037252eb04b18f83ea817f4f";
+        const API_TOKEN = "f9fbeac16a6604104025b25fe";
         const RETURN_URL = `${window.location.origin}${window.location.pathname}?verificationComplete=true`;
         
         const response = await fetch('https://api.cuty.io/full', {
