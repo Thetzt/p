@@ -37,13 +37,16 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-            position: relative;
+        }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
         }
         
         .profile-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -52,6 +55,16 @@
             overflow: hidden;
             cursor: pointer;
             z-index: 100;
+            transition: transform 0.3s ease;
+            background: transparent;
+        }
+        
+        .profile-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .profile-btn:active {
+            transform: scale(0.95);
         }
         
         .profile-btn img {
@@ -63,8 +76,8 @@
         .logout-popup {
             display: none;
             position: absolute;
-            top: 60px;
-            right: 0;
+            top: 70px;
+            right: 20px;
             background: rgba(0, 0, 0, 0.9);
             padding: 10px;
             border-radius: 5px;
@@ -105,9 +118,9 @@
         
         h1 {
             color: var(--secondary);
-            text-align: center;
-            margin: 20px 0;
+            margin: 0;
             font-weight: 600;
+            font-size: 1.8rem;
         }
         
         .input-group {
@@ -281,23 +294,29 @@
             .container {
                 padding: 15px;
             }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <button class="profile-btn" id="profileBtn">
-            <img id="userAvatar" src="" alt="Profile">
-        </button>
-        <div class="logout-popup" id="logoutPopup">
-            <button class="logout-btn" id="logoutBtn">
-                <img src="https://telegram.org/img/t_logo.png" alt="Logout">
-                Logout
-            </button>
-        </div>
-
         <div class="content">
-            <h1>MON FAUCET</h1>
+            <div class="header-container">
+                <h1>MON FAUCET</h1>
+                <button class="profile-btn" id="profileBtn">
+                    <img id="userAvatar" src="" alt="Profile">
+                </button>
+            </div>
+            
+            <div class="logout-popup" id="logoutPopup">
+                <button class="logout-btn" id="logoutBtn">
+                    <img src="https://telegram.org/img/t_logo.png" alt="Logout">
+                    Logout
+                </button>
+            </div>
             
             <div class="input-group">
                 <label><strong>MON Address</strong></label>
