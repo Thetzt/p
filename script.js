@@ -9,7 +9,7 @@ const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
     chainId: 10143,
-    faucetAmount: '0.1', // MON tokens per request
+    faucetAmount: '0.1',
     explorerUrl: 'https://testnet.monadexplorer.com',
     verificationApiToken: '42cedc31154967c9acc72e0e3a4b6e06b8ee9eb5'
 };
@@ -339,6 +339,7 @@ async function processRequest() {
         };
         
         // Update transaction history (grouped by Telegram user ID)
+        const userTransactions = JSON.parse(localStorage.getItem('userTransactions')) || {};
         const userTx = userTransactions[userKey] || [];
         userTx.push(txRecord);
         userTransactions[userKey] = userTx;
