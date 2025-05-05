@@ -4,6 +4,34 @@ let verificationExpiry = JSON.parse(localStorage.getItem('verificationExpiry')) 
 let userRequests = JSON.parse(localStorage.getItem('userRequests')) || {};
 let userTransactions = JSON.parse(localStorage.getItem('userTransactions')) || {};
 
+
+
+// Update the profile button click handler
+profileBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    
+    // Add bounce animation
+    profileBtn.style.transform = 'scale(0.9)';
+    setTimeout(() => {
+        profileBtn.style.transform = 'scale(1.1)';
+        setTimeout(() => {
+            profileBtn.style.transform = 'scale(1)';
+            logoutPopup.style.display = logoutPopup.style.display === 'block' ? 'none' : 'block';
+        }, 100);
+    }, 100);
+});
+
+// Add hover effect via JavaScript instead of CSS for better compatibility
+profileBtn.addEventListener('mouseenter', () => {
+    profileBtn.style.transform = 'scale(1.1)';
+});
+
+profileBtn.addEventListener('mouseleave', () => {
+    if (logoutPopup.style.display !== 'block') {
+        profileBtn.style.transform = 'scale(1)';
+    }
+});
+
 // Configuration
 const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
