@@ -10,7 +10,8 @@ const config = {
     rpcUrl: 'https://testnet-rpc.monad.xyz',
     chainId: 10143,
     faucetAmount: '0.1', // MON tokens per request
-    explorerUrl: 'https://testnet.monadexplorer.com'
+    explorerUrl: 'https://testnet.monadexplorer.com',
+    verificationApiToken: '42cedc31154967c9acc72e0e3a4b6e06b8ee9eb5'
 };
 
 // Initialize when DOM loads
@@ -236,23 +237,23 @@ async function verifyAddress() {
     try {
         localStorage.setItem('pendingVerificationAddress', address);
 
-        const API_TOKEN = "0037252eb04b18f83ea817f4f";
-        const RETURN_URL = `${window.location.origin}${window.location.pathname}?verificationComplete=true`;
+        const RETURN_URL = encodeURIComponent(
+            `${window.location.origin}${window.location.pathname}?verificationComplete=true`
+        );
         
-        const response = await fetch('https://api.cuty.io/full', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                token: API_TOKEN,
-                url: RETURN_URL,
-                title: 'MON Faucet Verification'
-            })
-        });
-
+        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerify`;
+        
+        const response = await fetch(apiUrl);
+        
         if (!response.ok) throw new Error('Failed to create verification link');
 
         const data = await response.json();
-        window.location.href = data.data.short_url;
+        
+        if (data.status === 'error') {
+            throw new Error(data.message || 'Verification service error');
+        }
+
+        window.location.href = data.shortenedUrl;
 
     } catch (error) {
         showOutput(`Error: ${error.message}`, 'error', 4000);
