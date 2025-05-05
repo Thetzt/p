@@ -261,6 +261,7 @@ async function verifyAddress() {
     }
 }
 
+
 async function processRequest() {
     const address = document.getElementById('address').value.trim();
     
@@ -303,78 +304,117 @@ async function processRequest() {
     showOutput('Processing your request...', 'info');
 
     try {
-        // Initialize provider and wallet
-        const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
-            chainId: config.chainId,
-            name: 'monad-testnet'
-        });
-        
-        const wallet = new ethers.Wallet(config.privateKey, provider);
-        
-        // Check faucet balance first
-        const faucetBalance = await provider.getBalance(wallet.address);
-        if (ethers.utils.formatEther(faucetBalance) < config.faucetAmount) {
-            throw new Error('Faucet has insufficient funds');
+        // Initialize provider and wallet with better error handling
+        let provider, wallet;
+        try {
+            provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
+                chainId: config.chainId,
+                name: 'monad-testnet'
+            });
+            wallet = new ethers.Wallet(config.privateKey, provider);
+        } catch (initError) {
+            console.error('Initialization error:', initError);
+            throw new Error('Failed to connect to blockchain network');
         }
-        
-        // Send transaction
-        const tx = await wallet.sendTransaction({
+
+        // Check faucet balance first with better formatting
+        let faucetBalance;
+        try {
+            faucetBalance = await provider.getBalance(wallet.address);
+            const formattedBalance = ethers.utils.formatEther(faucetBalance);
+            console.log(`Faucet balance: ${formattedBalance} MON`);
+            
+            if (parseFloat(formattedBalance) < parseFloat(config.faucetAmount)) {
+                throw new Error(`Faucet has insufficient funds (${formattedBalance} MON available)`);
+            }
+        } catch (balanceError) {
+            console.error('Balance check error:', balanceError);
+            throw new Error(balanceError.message);
+        }
+
+        // Prepare transaction with proper gas settings
+        const txParams = {
             to: address,
-            value: ethers.utils.parseEther(config.faucetAmount)
-        });
-        
-        console.log('Transaction submitted:', tx.hash);
-        
-        // Wait for transaction to be mined
-        const receipt = await tx.wait();
-        console.log('Transaction mined:', receipt.transactionHash);
-        
+            value: ethers.utils.parseEther(config.faucetAmount),
+            gasLimit: 21000, // Standard gas limit for simple transfers
+            gasPrice: await provider.getGasPrice() // Current network gas price
+        };
+
+        // Send transaction with enhanced error handling
+        let tx, receipt;
+        try {
+            tx = await wallet.sendTransaction(txParams);
+            showOutput(`Transaction submitted: ${tx.hash}\nWaiting for confirmation...`, 'info', 8000);
+            console.log('Transaction submitted:', tx.hash);
+            
+            // Wait for transaction to be mined with timeout
+            receipt = await Promise.race([
+                tx.wait(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Transaction timeout after 60 seconds')), 60000)
+            ]);
+            
+            console.log('Transaction mined:', receipt.transactionHash);
+            
+            if (receipt.status === 0) {
+                throw new Error('Transaction failed (status 0)');
+            }
+        } catch (txError) {
+            console.error('Transaction error:', txError);
+            let errorMsg = 'Transaction failed. MON not sent. Please try again.';
+            
+            if (txError.message.includes('insufficient funds')) {
+                errorMsg = 'Faucet has insufficient funds. MON not sent.';
+            } else if (txError.message.includes('underpriced')) {
+                errorMsg = 'Network congestion. MON not sent. Please try again.';
+            } else if (txError.message.includes('rejected')) {
+                errorMsg = 'Transaction rejected. MON not sent.';
+            } else if (txError.message.includes('timeout')) {
+                errorMsg = 'Transaction taking too long. Check later.';
+            }
+            
+            if (tx && tx.hash) {
+                errorMsg += `\n\nTX Hash: ${tx.hash}\nExplore: ${config.explorerUrl}/tx/${tx.hash}`;
+            }
+            
+            throw new Error(errorMsg);
+        }
+
         // Record the transaction
         const txRecord = {
             hash: tx.hash,
             to: address,
             amount: config.faucetAmount,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            status: receipt.status === 1 ? 'success' : 'failed'
         };
         
-        // Update transaction history (grouped by Telegram user ID)
+        // Update transaction history
         const userTx = userTransactions[userKey] || [];
         userTx.push(txRecord);
         userTransactions[userKey] = userTx;
         localStorage.setItem('userTransactions', JSON.stringify(userTransactions));
         
-        // Update request count
-        userTodayRequests.count++;
-        userRequests[userKey] = userTodayRequests;
-        localStorage.setItem('userRequests', JSON.stringify(userRequests));
+        // Update request count only if transaction succeeded
+        if (receipt.status === 1) {
+            userTodayRequests.count++;
+            userRequests[userKey] = userTodayRequests;
+            localStorage.setItem('userRequests', JSON.stringify(userRequests));
+        }
         
         // Update UI
         updateUI();
         
-        showOutput(`Success! 0.1 MON sent to ${address}`, 'success', 4000);
-        requestBtn.textContent = 'Requested!';
+        if (receipt.status === 1) {
+            showOutput(`Success! 0.1 MON sent to ${address}\n\nTX Hash: ${tx.hash}\nExplore: ${config.explorerUrl}/tx/${tx.hash}`, 'success', 8000);
+            requestBtn.textContent = 'Requested!';
+        } else {
+            throw new Error('Transaction failed (status 0)');
+        }
         
     } catch (error) {
-        console.error('Transaction error:', error);
-        let errorMsg = 'Transaction failed. MON not sent. Please try again.';
-        let debugInfo = '';
-        
-        if (error.message.includes('insufficient funds')) {
-            errorMsg = 'Faucet has insufficient funds. MON not sent.';
-        } else if (error.message.includes('underpriced')) {
-            errorMsg = 'Network congestion. MON not sent. Please try again.';
-        } else if (error.message.includes('rejected')) {
-            errorMsg = 'Transaction rejected. MON not sent.';
-        }
-        
-        // Add debug info for transaction errors
-        if (error.transactionHash) {
-            debugInfo = `\n\nTX Hash: ${error.transactionHash}\nExplore: ${config.explorerUrl}/tx/${error.transactionHash}`;
-        } else if (error.receipt && error.receipt.transactionHash) {
-            debugInfo = `\n\nTX Hash: ${error.receipt.transactionHash}\nExplore: ${config.explorerUrl}/tx/${error.receipt.transactionHash}`;
-        }
-        
-        showOutput(`${errorMsg}${debugInfo}`, 'error', 6000);
+        console.error('Process error:', error);
+        showOutput(error.message, 'error', 8000);
     } finally {
         requestBtn.disabled = false;
         setTimeout(() => {
@@ -382,6 +422,12 @@ async function processRequest() {
         }, 4000);
     }
 }
+
+
+
+
+
+
 
 function showOutput(message, type, duration = 4000) {
     const outputData = document.getElementById('outputData');
