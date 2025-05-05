@@ -44,12 +44,6 @@
             margin-bottom: 15px;
         }
         
-        .countdown {
-            font-size: 2rem;
-            margin: 20px 0;
-            color: var(--secondary);
-        }
-        
         .status-message {
             margin: 20px 0;
             font-size: 1.1rem;
@@ -79,62 +73,48 @@
 <body>
     <div class="verification-container">
         <img src="https://yourdomain.com/path-to-mon-logo.png" alt="MON Faucet" class="logo">
-        <h1>MON Faucet Verification</h1>
+        <h1>MON Faucet</h1>
         
-        <div class="countdown" id="countdown">7</div>
-        <div class="status-message" id="statusMessage">Completing verification...</div>
+        <div class="status-message" id="statusMessage">Verifying Robot<br>Wait a second...</div>
         
-        <button class="continue-btn" id="continueBtn">Go to Faucet</button>
+        <button class="continue-btn" id="continueBtn">Continue to Faucet</button>
     </div>
 
     <script>
         // Configuration
-        const countdownDuration = 7; // seconds
-        const redirectUrl = "https://claimpx.netlify.app/claim.html";
+        const verificationDelay = 7000; // 7 seconds
+        const redirectUrl = "https://claimpx.netlify.app/claim";
         
-        // Start countdown
-        let secondsRemaining = countdownDuration;
-        const countdownEl = document.getElementById('countdown');
+        // Elements
         const statusEl = document.getElementById('statusMessage');
         const continueBtn = document.getElementById('continueBtn');
         
-        function updateCountdown() {
-            countdownEl.textContent = secondsRemaining;
+        // Show button after 7 seconds
+        setTimeout(function() {
+            statusEl.textContent = "Verification complete!";
+            continueBtn.style.display = "inline-block";
             
-            if (secondsRemaining <= 0) {
-                statusEl.textContent = "Verification complete!";
-                continueBtn.style.display = "inline-block";
-                return;
-            }
+            // Auto-redirect after 2 more seconds if button not clicked
+            setTimeout(function() {
+                const pendingAddress = localStorage.getItem('pendingVerificationAddress');
+                if (pendingAddress) {
+                    window.location.href = redirectUrl + "?verificationComplete=true";
+                } else {
+                    window.location.href = redirectUrl;
+                }
+            }, 2000);
             
-            secondsRemaining--;
-            setTimeout(updateCountdown, 1000);
-        }
-        
-        // Start the countdown
-        updateCountdown();
+        }, verificationDelay);
         
         // Handle continue button click
         continueBtn.addEventListener('click', function() {
-            // Check if we have a pending verification address
             const pendingAddress = localStorage.getItem('pendingVerificationAddress');
             if (pendingAddress) {
-                // Add verification complete flag to URL
                 window.location.href = redirectUrl + "?verificationComplete=true";
             } else {
                 window.location.href = redirectUrl;
             }
         });
-        
-        // Auto-redirect after countdown + 2 seconds
-        setTimeout(function() {
-            const pendingAddress = localStorage.getItem('pendingVerificationAddress');
-            if (pendingAddress) {
-                window.location.href = redirectUrl + "?verificationComplete=true";
-            } else {
-                window.location.href = redirectUrl;
-            }
-        }, (countdownDuration + 2) * 1000);
     </script>
 </body>
 </html>
