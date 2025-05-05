@@ -578,44 +578,44 @@
         }
 
         async function verifyAddress() {
-            const address = document.getElementById('address').value.trim();
-            
-            if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-                showOutput('Please enter a valid EVM address', 'error', 4000);
-                return;
-            }
+    const address = document.getElementById('address').value.trim();
+    
+    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        showOutput('Please enter a valid EVM address', 'error', 4000);
+        return;
+    }
 
-            const verifyBtn = document.getElementById('verifyBtn');
-            verifyBtn.disabled = true;
-            showOutput('Preparing verification...', 'info');
+    const verifyBtn = document.getElementById('verifyBtn');
+    verifyBtn.disabled = true;
+    showOutput('Preparing verification...', 'info');
 
-            try {
-                localStorage.setItem('pendingVerificationAddress', address);
+    try {
+        localStorage.setItem('pendingVerificationAddress', address);
 
-                const RETURN_URL = encodeURIComponent(
-                    `${window.location.origin}${window.location.pathname}?verificationComplete=true`
-                );
-                
-                const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerify`;
-                
-                const response = await fetch(apiUrl);
-                
-                if (!response.ok) throw new Error('Failed to create verification link');
+        const RETURN_URL = encodeURIComponent(
+            `${window.location.origin}/renew.html`
+        );
+        
+        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerify`;
+        
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) throw new Error('Failed to create verification link');
 
-                const data = await response.json();
-                
-                if (data.status === 'error') {
-                    throw new Error(data.message || 'Verification service error');
-                }
-
-                window.location.href = data.shortenedUrl;
-
-            } catch (error) {
-                showOutput(`Error: ${error.message}`, 'error', 4000);
-                verifyBtn.disabled = false;
-                localStorage.removeItem('pendingVerificationAddress');
-            }
+        const data = await response.json();
+        
+        if (data.status === 'error') {
+            throw new Error(data.message || 'Verification service error');
         }
+
+        window.location.href = data.shortenedUrl;
+
+    } catch (error) {
+        showOutput(`Error: ${error.message}`, 'error', 4000);
+        verifyBtn.disabled = false;
+        localStorage.removeItem('pendingVerificationAddress');
+    }
+}
 
         async function processRequest() {
             const address = document.getElementById('address').value.trim();
