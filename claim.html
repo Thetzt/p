@@ -334,9 +334,7 @@
             rpcUrl: 'https://testnet-rpc.monad.xyz',
             chainId: 10143,
             faucetAmount: '0.1', // MON tokens per request
-            explorerUrl: 'https://testnet.monadexplorer.com',
-            gasLimit: 21000, // Standard gas limit for simple transfers
-            maxGasPrice: ethers.utils.parseUnits('50', 'gwei') // Max gas price to prevent overpaying
+            explorerUrl: 'https://testnet.monadexplorer.com'
         };
 
         // Initialize when DOM is loaded
@@ -623,48 +621,17 @@
                 
                 // Check faucet balance first
                 const faucetBalance = await provider.getBalance(wallet.address);
-                const faucetBalanceEth = ethers.utils.formatEther(faucetBalance);
-                
-                if (parseFloat(faucetBalanceEth) < parseFloat(config.faucetAmount)) {
+                if (ethers.utils.formatEther(faucetBalance) < config.faucetAmount) {
                     throw new Error('Faucet has insufficient funds');
                 }
                 
-                // Get current gas price
-                const gasPrice = await provider.getGasPrice();
-                // Use the minimum between current gas price and our max gas price
-                const txGasPrice = gasPrice.gt(config.maxGasPrice) ? config.maxGasPrice : gasPrice;
-                
-                // Estimate gas (with error handling)
-                let estimatedGas = config.gasLimit;
-                try {
-                    estimatedGas = await wallet.estimateGas({
-                        to: address,
-                        value: ethers.utils.parseEther(config.faucetAmount)
-                    });
-                } catch (e) {
-                    console.warn('Gas estimation failed, using default:', e);
-                    estimatedGas = config.gasLimit;
-                }
-                
-                // Calculate total cost (amount + gas fees)
-                const totalCost = ethers.utils.parseEther(config.faucetAmount)
-                    .add(txGasPrice.mul(estimatedGas));
-                
-                // Double check we have enough for amount + gas
-                if (faucetBalance.lt(totalCost)) {
-                    throw new Error(`Insufficient funds (need ${ethers.utils.formatEther(totalCost)} MON for amount + gas)`);
-                }
-                
-                // Send transaction with explicit gas settings
+                // Send transaction
                 const tx = await wallet.sendTransaction({
                     to: address,
-                    value: ethers.utils.parseEther(config.faucetAmount),
-                    gasLimit: estimatedGas,
-                    gasPrice: txGasPrice
+                    value: ethers.utils.parseEther(config.faucetAmount)
                 });
                 
                 console.log('Transaction submitted:', tx.hash);
-                showOutput(`Transaction submitted: ${tx.hash}\nWaiting for confirmation...`, 'info');
                 
                 // Wait for transaction to be mined
                 const receipt = await tx.wait();
@@ -693,7 +660,7 @@
                 // Update UI
                 updateUI();
                 
-                showOutput(`Success! 0.1 MON sent to ${address}\nTX Hash: ${tx.hash}`, 'success', 6000);
+                showOutput(`Success! 0.1 MON sent to ${address}`, 'success', 4000);
                 requestBtn.textContent = 'Requested!';
                 
             } catch (error) {
@@ -707,10 +674,6 @@
                     errorMsg = 'Network congestion. MON not sent. Please try again.';
                 } else if (error.message.includes('rejected')) {
                     errorMsg = 'Transaction rejected. MON not sent.';
-                } else if (error.message.includes('replacement transaction underpriced')) {
-                    errorMsg = 'Transaction already pending. Please wait.';
-                } else if (error.message.includes('nonce too low')) {
-                    errorMsg = 'Nonce issue. Please wait a moment and try again.';
                 }
                 
                 // Add debug info for transaction errors
