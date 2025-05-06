@@ -174,7 +174,7 @@ async function verifyTelegramAccount() {
             `https://claimpx.netlify.app/renew.html?tgid=${telegramUser.id}`
         );
         
-        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerify`;
+        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVeri`;
         
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error('Failed to create verification link');
