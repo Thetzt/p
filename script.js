@@ -1,7 +1,6 @@
 // Global state
-let verifiedAddresses = JSON.parse(localStorage.getItem('verifiedAddresses')) || [];
 let verificationExpiry = JSON.parse(localStorage.getItem('verificationExpiry')) || {};
-let userRequests = JSON.parse(localStorage.getItem('userRequests')) || {};
+let telegramRequests = JSON.parse(localStorage.getItem('telegramRequests')) || {};
 let userTransactions = JSON.parse(localStorage.getItem('userTransactions')) || {};
 
 // Configuration
@@ -9,24 +8,23 @@ const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
     chainId: 10143,
-    faucetAmount: '0.1',
+    faucetAmount: '0.01',
+    dailyLimit: 1,
     explorerUrl: 'https://testnet.monadexplorer.com',
     verificationApiToken: '42cedc31154967c9acc72e0e3a4b6e06b8ee9eb5'
 };
 
 // Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', async function() {
-    // Only run on claim page
     if (!document.getElementById('requestButton')) return;
     
-    // Check authentication
     const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     if (!telegramUser) {
         window.location.href = 'index.html';
         return;
     }
 
-    // Set profile avatar
+    // Profile setup
     const userAvatar = document.getElementById('userAvatar');
     if (telegramUser.photo_url) {
         userAvatar.src = telegramUser.photo_url;
@@ -46,102 +44,79 @@ document.addEventListener('DOMContentLoaded', async function() {
         logoutPopup.style.display = logoutPopup.style.display === 'block' ? 'none' : 'block';
     });
 
-    // Close popup when clicking elsewhere
     document.addEventListener('click', function() {
         logoutPopup.style.display = 'none';
     });
 
-    // Logout handler
     document.getElementById('logoutBtn').addEventListener('click', function() {
         localStorage.removeItem('telegramUser');
-        localStorage.removeItem('verifiedAddresses');
-        localStorage.removeItem('verificationExpiry');
-        localStorage.removeItem('userRequests');
-        localStorage.removeItem('userTransactions');
         window.location.href = 'index.html';
     });
 
-    // Check URL for verification completion
+    // Check verification
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('verificationComplete')) {
-        handleVerificationReturn();
-        // Clean the URL
+        const telegramId = urlParams.get('tgid');
+        if (telegramId) {
+            verificationExpiry[telegramId] = Date.now() + (24 * 60 * 60 * 1000);
+            localStorage.setItem('verificationExpiry', JSON.stringify(verificationExpiry));
+            showOutput('Verification successful!', 'success', 4000);
+        }
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
-    // Initialize UI
     updateUI();
-    
-    // Set up event listeners
     setupEventListeners();
 });
 
 function setupEventListeners() {
-    // Address input handler
-    document.getElementById('address').addEventListener('input', function() {
-        const address = this.value.trim();
-        updateButtonStates(address);
-        updateUI();
-    });
-
-    // Verify button handler
-    document.getElementById('verifyBtn').addEventListener('click', verifyAddress);
-
-    // Request button handler
+    document.getElementById('address').addEventListener('input', updateUI);
+    document.getElementById('verifyBtn').addEventListener('click', verifyTelegramAccount);
     document.getElementById('requestButton').addEventListener('click', processRequest);
 }
 
 function updateUI() {
-    const address = document.getElementById('address').value.trim();
-    updateRequestStatus(address);
+    updateRequestStatus();
     renderActivityFeed();
-    updateButtonStates(address);
+    updateButtonStates();
 }
 
-function updateButtonStates(address) {
-    const isVerified = isAddressVerified(address);
+function updateButtonStates() {
+    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+    if (!telegramUser) return;
+    
+    const isVerified = isTelegramVerified(telegramUser.id);
     document.getElementById('verifyBtn').style.display = isVerified ? 'none' : 'block';
     document.getElementById('verifySuccessBtn').style.display = isVerified ? 'block' : 'none';
 }
 
-function isAddressVerified(address) {
-    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) return false;
-    
-    if (!verifiedAddresses.includes(address)) return false;
-    
-    // Check if verification is expired (2 minutes)
-    const expiryTime = verificationExpiry[address] || 0;
+function isTelegramVerified(telegramId) {
+    const expiryTime = verificationExpiry[telegramId] || 0;
     return Date.now() < expiryTime;
 }
 
-function updateRequestStatus(address) {
-    const today = new Date().toDateString();
+function updateRequestStatus() {
+    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+    if (!telegramUser) return;
+    
     const requestsCountEl = document.getElementById('requestsCount');
     const nextRequestEl = document.getElementById('nextRequest');
     
-    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        requestsCountEl.textContent = '0/2';
-        nextRequestEl.textContent = 'Now';
-        nextRequestEl.className = 'status-value available';
-        return;
+    const userRequest = telegramRequests[telegramUser.id] || { lastRequest: 0 };
+    const lastRequestTime = new Date(userRequest.lastRequest);
+    const now = new Date();
+    
+    if ((now - lastRequestTime) >= 24 * 60 * 60 * 1000) {
+        userRequest.lastRequest = 0;
+        telegramRequests[telegramUser.id] = userRequest;
+        localStorage.setItem('telegramRequests', JSON.stringify(telegramRequests));
     }
     
-    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
-    const userKey = telegramUser.id.toString();
-    const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
+    requestsCountEl.textContent = userRequest.lastRequest ? '1/1' : '0/1';
     
-    // Reset if it's a new day
-    if (userTodayRequests.date !== today) {
-        userTodayRequests.date = today;
-        userTodayRequests.count = 0;
-        userRequests[userKey] = userTodayRequests;
-        localStorage.setItem('userRequests', JSON.stringify(userRequests));
-    }
-    
-    requestsCountEl.textContent = `${userTodayRequests.count}/2`;
-    
-    if (userTodayRequests.count >= 2) {
-        nextRequestEl.textContent = 'Tomorrow';
+    if (userRequest.lastRequest) {
+        const nextAvailable = new Date(lastRequestTime.getTime() + 24 * 60 * 60 * 1000);
+        nextRequestEl.textContent = nextAvailable.toLocaleTimeString() + ', ' + nextAvailable.toLocaleDateString();
         nextRequestEl.className = 'status-value limited';
     } else {
         nextRequestEl.textContent = 'Now';
@@ -156,30 +131,19 @@ function renderActivityFeed() {
     const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     if (!telegramUser) return;
     
-    const telegramUserId = telegramUser.id.toString();
-    const userTx = userTransactions[telegramUserId] || [];
+    const userTx = userTransactions[telegramUser.id] || [];
     
     if (userTx.length === 0) {
         activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No faucet requests yet</p>';
         return;
     }
     
-    // Sort by timestamp (newest first)
     userTx.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     
     userTx.forEach(tx => {
         const date = new Date(tx.timestamp);
-        const dateStr = date.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric'
-        });
-        
-        const timeStr = date.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-        }).toUpperCase();
-        
+        const dateStr = date.toLocaleDateString();
+        const timeStr = date.toLocaleTimeString();
         const shortAddress = `${tx.to.substring(0, 4)}...${tx.to.substring(tx.to.length - 4)}`;
         
         const activityItem = document.createElement('div');
@@ -189,113 +153,69 @@ function renderActivityFeed() {
             <div class="activity-details">
                 ${dateStr}, ${timeStr}<br>
                 <a href="${config.explorerUrl}/tx/${tx.hash}" target="_blank" class="activity-address">
-                    0.1 MON sent to ${shortAddress}
+                    0.01 MON sent to ${shortAddress}
                 </a>
             </div>
         `;
-        
         activityFeed.appendChild(activityItem);
     });
 }
 
-function handleVerificationReturn() {
-    const pendingAddress = localStorage.getItem('pendingVerificationAddress');
-    if (pendingAddress && /^0x[a-fA-F0-9]{40}$/.test(pendingAddress)) {
-        // Mark address as verified with expiry
-        if (!verifiedAddresses.includes(pendingAddress)) {
-            verifiedAddresses.push(pendingAddress);
-            localStorage.setItem('verifiedAddresses', JSON.stringify(verifiedAddresses));
-        }
-        
-        verificationExpiry[pendingAddress] = Date.now() + 120000; // 2 minutes expiry
-        localStorage.setItem('verificationExpiry', JSON.stringify(verificationExpiry));
-        
-        // Update UI
-        document.getElementById('address').value = pendingAddress;
-        updateUI();
-        
-        // Clear pending verification
-        localStorage.removeItem('pendingVerificationAddress');
-        
-        // Show success message
-        showOutput('Verification successful!', 'success', 4000);
-    }
-}
-
-async function verifyAddress() {
-    const address = document.getElementById('address').value.trim();
-    
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        showOutput('Please enter a valid EVM address', 'error', 4000);
-        return;
-    }
-
+async function verifyTelegramAccount() {
     const verifyBtn = document.getElementById('verifyBtn');
     verifyBtn.disabled = true;
     showOutput('Preparing verification...', 'info');
 
     try {
-        localStorage.setItem('pendingVerificationAddress', address);
-
+        const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+        if (!telegramUser) throw new Error('No Telegram user found');
+        
         const RETURN_URL = encodeURIComponent(
-            `${window.location.origin}${window.location.pathname}?verificationComplete=true`
+            `https://claimpx.netlify.app/renew.html?tgid=${telegramUser.id}`
         );
         
-        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerification`;
+        const apiUrl = `https://exe.io/api?api=${config.verificationApiToken}&url=${RETURN_URL}&alias=MONFaucetVerify`;
         
         const response = await fetch(apiUrl);
-        
         if (!response.ok) throw new Error('Failed to create verification link');
 
         const data = await response.json();
+        if (data.status === 'error') throw new Error(data.message);
         
-        if (data.status === 'error') {
-            throw new Error(data.message || 'Verification service error');
-        }
-
         window.location.href = data.shortenedUrl;
-
     } catch (error) {
         showOutput(`Error: ${error.message}`, 'error', 4000);
         verifyBtn.disabled = false;
-        localStorage.removeItem('pendingVerificationAddress');
     }
 }
 
 async function processRequest() {
     const address = document.getElementById('address').value.trim();
+    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     
-    if (!address) {
-        showOutput('Please enter your MON address', 'error', 4000);
+    if (!telegramUser) {
+        showOutput('Please login with Telegram first', 'error', 4000);
         return;
     }
     
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
         showOutput('Invalid MON address format', 'error', 4000);
         return;
     }
     
-    if (!isAddressVerified(address)) {
+    if (!isTelegramVerified(telegramUser.id)) {
         showOutput('Please complete robot verification first', 'error', 4000);
-        document.getElementById('verifyBtn').style.display = 'block';
-        document.getElementById('verifySuccessBtn').style.display = 'none';
         return;
     }
 
-    // Check daily limit
-    const today = new Date().toDateString();
-    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
-    const userKey = telegramUser.id.toString();
-    const userTodayRequests = userRequests[userKey] || { date: today, count: 0 };
+    // Check 24 hour limit
+    const userRequest = telegramRequests[telegramUser.id] || { lastRequest: 0 };
+    const lastRequestTime = new Date(userRequest.lastRequest);
+    const now = new Date();
     
-    if (userTodayRequests.date !== today) {
-        // Reset counter for new day
-        userTodayRequests.date = today;
-        userTodayRequests.count = 0;
-    }
-    
-    if (userTodayRequests.count >= 2) {
-        showOutput('Daily limit reached (2 requests per day)', 'error', 4000);
+    if ((now - lastRequestTime) < 24 * 60 * 60 * 1000) {
+        const nextAvailable = new Date(lastRequestTime.getTime() + 24 * 60 * 60 * 1000);
+        showOutput(`You can request again at ${nextAvailable.toLocaleString()}`, 'error', 4000);
         return;
     }
 
@@ -304,7 +224,6 @@ async function processRequest() {
     showOutput('Processing your request...', 'info');
 
     try {
-        // Initialize provider and wallet
         const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
             chainId: config.chainId,
             name: 'monad-testnet'
@@ -312,75 +231,54 @@ async function processRequest() {
         
         const wallet = new ethers.Wallet(config.privateKey, provider);
         
-        // Check faucet balance first
         const faucetBalance = await provider.getBalance(wallet.address);
         if (ethers.utils.formatEther(faucetBalance) < config.faucetAmount) {
             throw new Error('Faucet has insufficient funds');
         }
         
-        // Send transaction
         const tx = await wallet.sendTransaction({
             to: address,
             value: ethers.utils.parseEther(config.faucetAmount)
         });
         
-        console.log('Transaction submitted:', tx.hash);
-        
-        // Wait for transaction to be mined
-        const receipt = await tx.wait();
-        console.log('Transaction mined:', receipt.transactionHash);
-        
-        // Record the transaction
+        // Record transaction
         const txRecord = {
             hash: tx.hash,
             to: address,
             amount: config.faucetAmount,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            telegramId: telegramUser.id
         };
         
-        // Update transaction history (grouped by Telegram user ID)
-        const userTransactions = JSON.parse(localStorage.getItem('userTransactions')) || {};
-        const userTx = userTransactions[userKey] || [];
+        const userTx = userTransactions[telegramUser.id] || [];
         userTx.push(txRecord);
-        userTransactions[userKey] = userTx;
+        userTransactions[telegramUser.id] = userTx;
         localStorage.setItem('userTransactions', JSON.stringify(userTransactions));
         
-        // Update request count
-        userTodayRequests.count++;
-        userRequests[userKey] = userTodayRequests;
-        localStorage.setItem('userRequests', JSON.stringify(userRequests));
+        // Update request time
+        userRequest.lastRequest = Date.now();
+        telegramRequests[telegramUser.id] = userRequest;
+        localStorage.setItem('telegramRequests', JSON.stringify(telegramRequests));
         
-        // Update UI
         updateUI();
-        
-        showOutput(`Success! 0.1 MON sent to ${address}`, 'success', 4000);
+        showOutput(`Success! ${config.faucetAmount} MON sent to ${address}`, 'success', 4000);
         requestBtn.textContent = 'Requested!';
         
     } catch (error) {
         console.error('Transaction error:', error);
-        let errorMsg = 'Transaction failed. MON not sent. Please try again.';
-        let debugInfo = '';
+        let errorMsg = 'Transaction failed. Please try again.';
         
         if (error.message.includes('insufficient funds')) {
-            errorMsg = 'Faucet has insufficient funds. MON not sent.';
+            errorMsg = 'Faucet has insufficient funds.';
         } else if (error.message.includes('underpriced')) {
-            errorMsg = 'Network congestion. MON not sent. Please try again.';
-        } else if (error.message.includes('rejected')) {
-            errorMsg = 'Transaction rejected. MON not sent.';
+            errorMsg = 'Network congestion. Please try again.';
         }
         
-        // Add debug info for transaction errors
-        if (error.transactionHash) {
-            debugInfo = `\n\nTX Hash: ${error.transactionHash}\nExplore: ${config.explorerUrl}/tx/${error.transactionHash}`;
-        } else if (error.receipt && error.receipt.transactionHash) {
-            debugInfo = `\n\nTX Hash: ${error.receipt.transactionHash}\nExplore: ${config.explorerUrl}/tx/${error.receipt.transactionHash}`;
-        }
-        
-        showOutput(`${errorMsg}${debugInfo}`, 'error', 6000);
+        showOutput(errorMsg, 'error', 4000);
     } finally {
         requestBtn.disabled = false;
         setTimeout(() => {
-            requestBtn.textContent = 'Request 0.1 MON';
+            requestBtn.textContent = 'Request 0.01 MON';
         }, 4000);
     }
 }
@@ -398,7 +296,6 @@ function showOutput(message, type, duration = 4000) {
     
     outputData.style.display = 'block';
     
-    // Hide after duration
     if (duration > 0) {
         setTimeout(() => {
             outputData.style.display = 'none';
