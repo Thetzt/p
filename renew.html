@@ -63,16 +63,11 @@
             transition: all 0.3s;
             display: none;
         }
-        
-        .continue-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(110, 69, 226, 0.6);
-        }
     </style>
 </head>
 <body>
     <div class="verification-container">
-        
+        <img src="https://claimpx.netlify.app/mon-logo.png" alt="MON Faucet" class="logo">
         <h1>MON Faucet</h1>
         
         <div class="status-message" id="statusMessage">Verifying Robot<br>Wait a second...</div>
@@ -81,38 +76,31 @@
     </div>
 
     <script>
-        // Configuration
-        const verificationDelay = 7000; // 7 seconds
-        const redirectUrl = "https://claimpx.netlify.app/claim";
-        
-        // Elements
-        const statusEl = document.getElementById('statusMessage');
-        const continueBtn = document.getElementById('continueBtn');
-        
-        // Show button after 7 seconds
         setTimeout(function() {
-            statusEl.textContent = "Verification complete!";
-            continueBtn.style.display = "inline-block";
+            document.getElementById('statusMessage').textContent = "Verification complete!";
+            document.getElementById('continueBtn').style.display = "inline-block";
             
-            // Auto-redirect after 2 more seconds if button not clicked
+            const urlParams = new URLSearchParams(window.location.search);
+            const telegramId = urlParams.get('tgid');
+            
             setTimeout(function() {
-                const pendingAddress = localStorage.getItem('pendingVerificationAddress');
-                if (pendingAddress) {
-                    window.location.href = redirectUrl + "?verificationComplete=true";
+                if (telegramId) {
+                    window.location.href = `https://claimpx.netlify.app/claim?verificationComplete=true&tgid=${telegramId}`;
                 } else {
-                    window.location.href = redirectUrl;
+                    window.location.href = "https://claimpx.netlify.app/claim";
                 }
             }, 2000);
             
-        }, verificationDelay);
+        }, 7000);
         
-        // Handle continue button click
-        continueBtn.addEventListener('click', function() {
-            const pendingAddress = localStorage.getItem('pendingVerificationAddress');
-            if (pendingAddress) {
-                window.location.href = redirectUrl + "?verificationComplete=true";
+        document.getElementById('continueBtn').addEventListener('click', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const telegramId = urlParams.get('tgid');
+            
+            if (telegramId) {
+                window.location.href = `https://claimpx.netlify.app/claim?verificationComplete=true&tgid=${telegramId}`;
             } else {
-                window.location.href = redirectUrl;
+                window.location.href = "https://claimpx.netlify.app/claim";
             }
         });
     </script>
