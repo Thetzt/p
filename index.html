@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monad Testnet Faucet</title>
+    <title>Monad Testnet Promo Codes</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -36,39 +36,20 @@
             text-decoration: none;
             font-weight: bold;
         }
-        .instructions {
-            margin-top: 20px;
-            text-align: left;
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-        }
     </style>
 </head>
 <body>
-    <h1>Monad Testnet Faucet</h1>
-    <p>Get your unique promo code below</p>
+    <h1>Monad Testnet Promo Codes</h1>
+    <p>Get your unique promo code to participate</p>
     
     <div class="promo-container">
         <h2>Your Promo Code</h2>
         <div class="promo-code" id="promoCode">Loading...</div>
-        <p>This code is valid for your IP only</p>
+        <p>Submit this code in our Telegram bot</p>
     </div>
     
-    <a href="https://t.me/uxxucc_bot" class="telegram-btn">Claim in Telegram</a>
+    <a href="https://t.me/uxxucc_bot" class="telegram-btn">Submit Code in Telegram</a>
     
-    <div class="instructions">
-        <h3>How to claim your 0.1 MON:</h3>
-        <ol>
-            <li>Copy your promo code above</li>
-            <li>Open our Telegram bot: <strong>@uxxucc_bot</strong></li>
-            <li>Send your code and wallet address like this:<br>
-                <code>PROMO_CODE YOUR_WALLET_ADDRESS</code><br>
-                Example: <code>N6VQ45 0x61b705852c7883d61fbee2b2582f52ef48dbb807</code>
-            </li>
-        </ol>
-    </div>
-
     <script>
         // Generate random promo code
         function generateCode() {
@@ -80,34 +61,13 @@
             return result;
         }
 
-        // Store code in localStorage and send to backend
-        async function initPromoCode() {
+        // Store code in localStorage
+        function initPromoCode() {
             let code = localStorage.getItem('monad_promo_code');
             
             if (!code) {
                 code = generateCode();
                 localStorage.setItem('monad_promo_code', code);
-                
-                // Send to backend (replace with your actual endpoint)
-                try {
-                    const response = await fetch('https://your-backend-api.com/register-code', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            code: code,
-                            // In production, get real IP from your backend
-                            ip_hash: 'user_ip_hash' 
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        console.error('Failed to register code');
-                    }
-                } catch (error) {
-                    console.error('Error registering code:', error);
-                }
             }
             
             document.getElementById('promoCode').textContent = code;
