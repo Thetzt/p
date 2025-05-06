@@ -3,385 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monad Testnet Faucet</title>
+    <title>MON Faucet</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        .container {
-            background-color: #fff;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            margin-top: 20px;
-        }
-        .promo-code {
-            font-size: 28px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            border: 2px dashed #3498db;
-        }
-        .btn {
-            display: inline-block;
-            margin: 20px 0;
-            padding: 12px 25px;
-            background-color: #3498db;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #2c3e50, #4a4a4a);
             color: white;
-            text-decoration: none;
-            border-radius: 5px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .container {
+            background-color: rgba(40, 40, 40, 0.8);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid #555;
+        }
+        
+        .title {
+            font-size: 2.2rem;
+            margin-bottom: 5px;
+            color: #4facfe;
+            text-shadow: 0 0 10px rgba(79, 172, 254, 0.5);
+            letter-spacing: 1px;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            color: #aaa;
+        }
+        
+        .code-label {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: #4facfe;
+        }
+        
+        .promo-code {
+            font-size: 2.2rem;
             font-weight: bold;
-            transition: background-color 0.3s;
+            color: #00f2fe;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 2px solid #4facfe;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
         }
-        .btn:hover {
-            background-color: #2980b9;
-        }
-        .instructions {
-            text-align: left;
-            margin: 25px 0;
-            padding: 15px;
-            background-color: #e8f4fc;
-            border-radius: 5px;
-        }
-        h1 {
-            color: #2c3e50;
+        
+        .note {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Monad Testnet Faucet</h1>
-        <p>Get your unique promo code below</p>
+        <div class="title">MON FAUCET</div>
+        <div class="subtitle">Your unique claim code</div>
         
+        <div class="code-label">MON FAUCET CODE</div>
         <div class="promo-code" id="promoCode">Loading your code...</div>
         
-        <p>This code is valid for your device only</p>
-        
-        <a href="https://t.me/monfauccet" class="btn">Claim in Telegram Group</a>
-        
-        <div class="instructions">
-            <h3>How to participate:</h3>
-            <ol>
-                <li>Copy your unique code above</li>
-                <li>Join our Telegram group</li>
-                <li>Submit the code in the group</li>
-                <li>Complete 10 valid codes to receive 0.1 MON</li>
-            </ol>
-        </div>
+        <div class="note">This code is valid for your device only</div>
     </div>
 
     <script>
         // 300 Promo Codes (one per line)
         const promoCodeList = [
-"A0B4W6",
-"A0F3I3",
-"A1I9P7",
-"A1X0C8",
-"A2X0O7",
-"A3K0E9",
-"A3V6L1",
-"A4I7I4",
-"A4R4P7",
-"A5U9B9",
-"A5Z8E0",
-"A7F5Q1",
-"A7U1K7",
-"A8D9U7",
-"A8E2O0",
-"A8H6G3",
-"A8O7O7",
-"A9A1M7",
-"A9X4K4",
-"B0R4R3",
-"B0T6W4",
-"B1D0C4",
-"B1D6T0",
-"B1M2G4",
-"B5K4V0",
-"B5L8V0",
-"B6W8I3",
-"B9E6R8",
-"C0O1I6",
-"C0S7G1",
-"C1I0S9",
-"C3L3L6",
-"C4F1M1",
-"C4K2Y0",
-"C4P2O7",
-"C4P3D3",
-"C4Z5R1",
-"C6Q9V6",
-"C7R8T3",
-"C9Y8O5",
-"D0X5Y5",
-"D1O0B2",
-"D3J3L4",
-"D3N8H3",
-"D3O2N1",
-"D5K6U2",
-"D6L9H2",
-"D7G5O0",
-"D8D0J7",
-"D8J5X7",
-"D8O6S0",
-"D9E7Z5",
-"D9T9L9",
-"D9Z4V4",
-"E0P3U1",
-"E1A0Q7",
-"E2K9H6",
-"E2V6Q9",
-"E2Y4R0",
-"E3C4G9",
-"E3J0E5",
-"E3V1Y3",
-"E5S4J0",
-"E6F3P5",
-"E7C3L7",
-"E9T3B2",
-"F0F3T9",
-"F0G9K3",
-"F0K8E0",
-"F1P7B5",
-"F2B5V8",
-"F2W0E9",
-"F2Z0J7",
-"F3D8A5",
-"F3Z5T6",
-"F5W9E4",
-"F6H2R4",
-"F6T3D9",
-"F6Y9G3",
-"F7E0R5",
-"F8L6Q7",
-"F9K5T0",
-"F9V0Z7",
-"G0C3T2",
-"G0R2W0",
-"G2I3V6",
-"G3A5F8",
-"G3H5U2",
-"G3M4E4",
-"G5U0D1",
-"G6I1L9",
-"G8G1G8",
-"G8M6H7",
-"G8N8Z5",
-"G9D5G6",
-"G9I7H9",
-"G9R3S4",
-"H0K1L3",
-"H0M3G9",
-"H2K0S6",
-"H2M8V8",
-"H2Q9P9",
-"H3G8Q4",
-"H4C2V3",
-"H4L8R9",
-"H5M3C0",
-"H6C5X7",
-"H8Z8V0",
-"I0K6V3",
-"I0O4Y0",
-"I0S4Q1",
-"I1V3R2",
-"I2S4Z9",
-"I4F5D2",
-"I5S2U8",
-"I6M4C0",
-"I6P0D5",
-"I9K7F0",
-"J1M8K9",
-"J1Q4J1",
-"J2U8X9",
-"J2X0L5",
-"J5L5M5",
-"J8N6P9",
-"J9B9V9",
-"K0G1L5",
-"K0L7K1",
-"K1R9S6",
-"K2R9L3",
-"K2Y1J7",
-"K3N0K1",
-"K3Z4M8",
-"K5K0H6",
-"K6Y4X0",
-"K8V7P3",
-"K9X7T5",
-"L0D4P7",
-"L1B7H7",
-"L1N5N6",
-"L2Q9T0",
-"L3U3X7",
-"L4B9X7",
-"L4Q0B0",
-"L4Q6M1",
-"L4R8L9",
-"L5R3J5",
-"L6O6J0",
-"L7G3U2",
-"L7K3I3",
-"L7T5L8",
-"L7V2F8",
-"L7V7U6",
-"L8D5O5",
-"L9L7C6",
-"L9Z5P1",
-"M0O2E2",
-"M1E9W3",
-"M1Y4S9",
-"M4U0B4",
-"M5J9S9",
-"M5Q8I6",
-"M6W6M1",
-"M7Z5K0",
-"N0U8H2",
-"N1F4P7",
-"N3F5S9",
-"N4C6V2",
-"N4K4R5",
-"N5I1W6",
-"N6X1C9",
-"N7H4Z7",
-"N7N4P5",
-"N9A3Q1",
-"N9Q2O9",
-"O0F9X0",
-"O0I5H7",
-"O0N2Y0",
-"O2C5E8",
-"O3D6V3",
-"O3H9F5",
-"O3O1J7",
-"O3U0Z1",
-"O5S0V2",
-"O7J4P8",
-"O7M5F3",
-"O9O3K8",
-"P0Y4K6",
-"P1I9C6",
-"P1W8L7",
-"P2B4M3",
-"P2D2E7",
-"P2M2O5",
-"P2S6D6",
-"P3E2H1",
-"P3O4X2",
-"P3T3K6",
-"P6V3L7",
-"P7I3I3",
-"P7R0X6",
-"P7U9E0",
-"P8F6W9",
-"P8K6D0",
-"P8T3V9",
-"Q4O1K0",
-"Q5E7G1",
-"Q5H4D8",
-"Q6R9P7",
-"Q7Y3U3",
-"Q8H9S0",
-"Q9V0P2",
-"R0J1L0",
-"R2P5H4",
-"R2U9H2",
-"R3H1T9",
-"R4J5G3",
-"R4R2T4",
-"R5B3F7",
-"R5R6O2",
-"R6T1U4",
-"R7M1G0",
-"R7W9W6",
-"R8V7I6",
-"R9U6E0",
-"S0P5O7",
-"S2V1Q7",
-"S3A9G7",
-"S3S6X8",
-"S4Q9H7",
-"S5A4F4",
-"S5P9S0",
-"S8U1E9",
-"S9T9Z1",
-"T1Z9Y5",
-"T5E8V3",
-"T8G1W2",
-"T9T8O3",
-"U0H3K3",
-"U2P0O9",
-"U2U6Y5",
-"U3B4P6",
-"U3Q0Z3",
-"U4A5V0",
-"U6M2J7",
-"U8Z9S2",
-"U9U7G9",
-"V1H5K2",
-"V1U5F0",
-"V2L0H9",
-"V2Y0W4",
-"V6U2W2",
-"V7J8K8",
-"V8P3Q4",
-"V8Y9S2",
-"W3A3V2",
-"W3J9V3",
-"W4H5G0",
-"W5G6L0",
-"W5N9V8",
-"W5O6E4",
-"W5W5P8",
-"W6E6P5",
-"W6F1L9",
-"W6Y4B1",
-"W8I0V5",
-"W8R0Y4",
-"W8V8L5",
-"W9F8Q2",
-"X0M1U3",
-"X0Q9Q6",
-"X0V8M8",
-"X3I9P7",
-"X4O0Y9",
-"X5S1E2",
-"X6I2S4",
-"X6V1L0",
-"X9C6R0",
-"X9E4E2",
-"Y0G2U8",
-"Y1E6W0",
-"Y1K6J7",
-"Y1P0U0",
-"Y1S7I2",
-"Y1Y9Q8",
-"Y2L4Y7",
-"Y3D1G7",
-"Y3D8W8",
-"Y3I0Q0",
-"Y5O5N2",
-"Y5O6U5",
-"Y7F7L0",
-"Y7J5D5",
-"Y7X4I4",
-"Y8J1W0",
-"Y9M6G2",
-"Z0I2I4",
-"Z2Y3K4",
-"Z3V8C2",
-"Z5K1Y7",
-"Z5L8L8",
-"Z6I3G5"
+"A0B4W6","A0F3I3","A1I9P7","A1X0C8","A2X0O7","A3K0E9","A3V6L1","A4I7I4","A4R4P7",
+"A5U9B9","A5Z8E0","A7F5Q1","A7U1K7","A8D9U7","A8E2O0","A8H6G3","A8O7O7","A9A1M7",
+"A9X4K4","B0R4R3","B0T6W4","B1D0C4","B1D6T0","B1M2G4","B5K4V0","B5L8V0","B6W8I3",
+"B9E6R8","C0O1I6","C0S7G1","C1I0S9","C3L3L6","C4F1M1","C4K2Y0","C4P2O7","C4P3D3",
+"C4Z5R1","C6Q9V6","C7R8T3","C9Y8O5","D0X5Y5","D1O0B2","D3J3L4","D3N8H3","D3O2N1",
+"D5K6U2","D6L9H2","D7G5O0","D8D0J7","D8J5X7","D8O6S0","D9E7Z5","D9T9L9","D9Z4V4",
+"E0P3U1","E1A0Q7","E2K9H6","E2V6Q9","E2Y4R0","E3C4G9","E3J0E5","E3V1Y3","E5S4J0",
+"E6F3P5","E7C3L7","E9T3B2","F0F3T9","F0G9K3","F0K8E0","F1P7B5","F2B5V8","F2W0E9",
+"F2Z0J7","F3D8A5","F3Z5T6","F5W9E4","F6H2R4","F6T3D9","F6Y9G3","F7E0R5","F8L6Q7",
+"F9K5T0","F9V0Z7","G0C3T2","G0R2W0","G2I3V6","G3A5F8","G3H5U2","G3M4E4","G5U0D1",
+"G6I1L9","G8G1G8","G8M6H7","G8N8Z5","G9D5G6","G9I7H9","G9R3S4","H0K1L3","H0M3G9",
+"H2K0S6","H2M8V8","H2Q9P9","H3G8Q4","H4C2V3","H4L8R9","H5M3C0","H6C5X7","H8Z8V0",
+"I0K6V3","I0O4Y0","I0S4Q1","I1V3R2","I2S4Z9","I4F5D2","I5S2U8","I6M4C0","I6P0D5",
+"I9K7F0","J1M8K9","J1Q4J1","J2U8X9","J2X0L5","J5L5M5","J8N6P9","J9B9V9","K0G1L5",
+"K0L7K1","K1R9S6","K2R9L3","K2Y1J7","K3N0K1","K3Z4M8","K5K0H6","K6Y4X0","K8V7P3",
+"K9X7T5","L0D4P7","L1B7H7","L1N5N6","L2Q9T0","L3U3X7","L4B9X7","L4Q0B0","L4Q6M1",
+"L4R8L9","L5R3J5","L6O6J0","L7G3U2","L7K3I3","L7T5L8","L7V2F8","L7V7U6","L8D5O5",
+"L9L7C6","L9Z5P1","M0O2E2","M1E9W3","M1Y4S9","M4U0B4","M5J9S9","M5Q8I6","M6W6M1",
+"M7Z5K0","N0U8H2","N1F4P7","N3F5S9","N4C6V2","N4K4R5","N5I1W6","N6X1C9","N7H4Z7",
+"N7N4P5","N9A3Q1","N9Q2O9","O0F9X0","O0I5H7","O0N2Y0","O2C5E8","O3D6V3","O3H9F5",
+"O3O1J7","O3U0Z1","O5S0V2","O7J4P8","O7M5F3","O9O3K8","P0Y4K6","P1I9C6","P1W8L7",
+"P2B4M3","P2D2E7","P2M2O5","P2S6D6","P3E2H1","P3O4X2","P3T3K6","P6V3L7","P7I3I3",
+"P7R0X6","P7U9E0","P8F6W9","P8K6D0","P8T3V9","Q4O1K0","Q5E7G1","Q5H4D8","Q6R9P7",
+"Q7Y3U3","Q8H9S0","Q9V0P2","R0J1L0","R2P5H4","R2U9H2","R3H1T9","R4J5G3","R4R2T4",
+"R5B3F7","R5R6O2","R6T1U4","R7M1G0","R7W9W6","R8V7I6","R9U6E0","S0P5O7","S2V1Q7",
+"S3A9G7","S3S6X8","S4Q9H7","S5A4F4","S5P9S0","S8U1E9","S9T9Z1","T1Z9Y5","T5E8V3",
+"T8G1W2","T9T8O3","U0H3K3","U2P0O9","U2U6Y5","U3B4P6","U3Q0Z3","U4A5V0","U6M2J7",
+"U8Z9S2","U9U7G9","V1H5K2","V1U5F0","V2L0H9","V2Y0W4","V6U2W2","V7J8K8","V8P3Q4",
+"V8Y9S2","W3A3V2","W3J9V3","W4H5G0","W5G6L0","W5N9V8","W5O6E4","W5W5P8","W6E6P5",
+"W6F1L9","W6Y4B1","W8I0V5","W8R0Y4","W8V8L5","W9F8Q2","X0M1U3","X0Q9Q6","X0V8M8",
+"X3I9P7","X4O0Y9","X5S1E2","X6I2S4","X6V1L0","X9C6R0","X9E4E2","Y0G2U8","Y1E6W0",
+"Y1K6J7","Y1P0U0","Y1S7I2","Y1Y9Q8","Y2L4Y7","Y3D1G7","Y3D8W8","Y3I0Q0","Y5O5N2",
+"Y5O6U5","Y7F7L0","Y7J5D5","Y7X4I4","Y8J1W0","Y9M6G2","Z0I2I4","Z2Y3K4","Z3V8C2",
+"Z5K1Y7","Z5L8L8","Z6I3G5"
         ];
 
         // Get user's fingerprint (simplified version)
@@ -410,9 +144,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             const code = getDeviceCode();
             document.getElementById('promoCode').textContent = code;
-            
-            // In production: Send this code+device info to your backend
-            console.log('Assigned code:', code);
         });
     </script>
 </body>
