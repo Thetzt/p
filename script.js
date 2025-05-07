@@ -10,8 +10,7 @@ const config = {
     chainId: 10143,
     faucetAmount: '0.01',
     dailyLimit: 1,
-    explorerUrl: 'https://testnet.monadexplorer.com',
-    recaptchaSiteKey: '6Lcs7zErAAAAAFjdySIXvv-1JWcAFeBXPu5H0rH3'
+    explorerUrl: 'https://testnet.monadexplorer.com'
 };
 
 // Initialize when DOM loads
@@ -83,35 +82,31 @@ function updateVerificationStatus() {
             statusEl.textContent = `✓ Verified (expires in ${timeLeft} minutes)`;
             statusEl.className = 'verification-status verified';
         } else {
-            statusEl.textContent = 'Verification expired - will renew automatically';
+            statusEl.textContent = 'Verification expired. Please complete reCAPTCHA again.';
             statusEl.className = 'verification-status expired';
         }
     } else {
-        statusEl.textContent = 'Verification required - we\'ll check automatically when you request';
+        statusEl.textContent = 'Please complete the reCAPTCHA verification';
         statusEl.className = 'verification-status expired';
     }
 }
 
-async function verifyWithRecaptcha() {
-    return new Promise((resolve, reject) => {
-        if (typeof grecaptcha === 'undefined') {
-            reject(new Error('reCAPTCHA not loaded'));
-            return;
-        }
+// reCAPTCHA callbacks
+function onCaptchaSuccess(token) {
+    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
+    if (!telegramUser) return;
+    
+    // Set verification to expire in 1 hour
+    verificationExpiry[telegramUser.id] = Date.now() + (60 * 60 * 1000);
+    localStorage.setItem('verificationExpiry', JSON.stringify(verificationExpiry));
+    
+    showOutput('Verification successful!', 'success', 4000);
+    updateVerificationStatus();
+}
 
-        grecaptcha.ready(function() {
-            grecaptcha.execute(config.recaptchaSiteKey, {action: 'request'})
-                .then(function(token) {
-                    // In production, you should verify this token with your backend
-                    // For demo purposes, we'll just resolve with the token
-                    resolve(token);
-                })
-                .catch(err => {
-                    console.error('reCAPTCHA error:', err);
-                    reject(new Error('Verification failed. Please try again.'));
-                });
-        });
-    });
+function onCaptchaExpired() {
+    showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
+    updateVerificationStatus();
 }
 
 function isTelegramVerified(telegramId) {
@@ -198,6 +193,11 @@ async function processRequest() {
         showOutput('Invalid MON address format', 'error', 4000);
         return;
     }
+    
+    if (!isTelegramVerified(telegramUser.id)) {
+        showOutput('Please complete reCAPTCHA verification first', 'error', 4000);
+        return;
+    }
 
     // Check 24 hour limit
     const userRequest = telegramRequests[telegramUser.id] || { lastRequest: 0 };
@@ -212,20 +212,9 @@ async function processRequest() {
 
     const requestBtn = document.getElementById('requestButton');
     requestBtn.disabled = true;
-    showOutput('Verifying...', 'info');
+    showOutput('Processing your request...', 'info');
 
     try {
-        // Verify reCAPTCHA first
-        const token = await verifyWithRecaptcha();
-        
-        // Set verification to expire in 1 hour
-        verificationExpiry[telegramUser.id] = Date.now() + (60 * 60 * 1000);
-        localStorage.setItem('verificationExpiry', JSON.stringify(verificationExpiry));
-        updateVerificationStatus();
-
-        // Process the transaction
-        showOutput('Processing your request...', 'info');
-
         const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
             chainId: config.chainId,
             name: 'monad-testnet'
@@ -267,8 +256,8 @@ async function processRequest() {
         requestBtn.textContent = 'Requested!';
         
     } catch (error) {
-        console.error('Error:', error);
-        let errorMsg = error.message || 'Transaction failed. Please try again.';
+        console.error('Transaction error:', error);
+        let errorMsg = 'Transaction failed. Please try again.';
         
         if (error.message.includes('insufficient funds')) {
             errorMsg = 'Faucet has insufficient funds.';
