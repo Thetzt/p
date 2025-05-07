@@ -3,19 +3,287 @@
 <head>
     <title>MON Faucet</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Add reCAPTCHA API -->
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
-        /* ... (keep all existing styles) ... */
-
-        /* Add reCAPTCHA styles */
+        :root {
+            --primary: #6e45e2;
+            --secondary: #88d3ce;
+            --dark: #1a1a2e;
+            --light: #f5f5f5;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --error: #f44336;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--dark), #16213e);
+            color: var(--light);
+            min-height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .container {
+            width: 100%;
+            min-height: 100vh;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .profile-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            padding: 0;
+            overflow: hidden;
+            cursor: pointer;
+            z-index: 100;
+        }
+        
+        .profile-btn img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .logout-popup {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            width: 120px;
+        }
+        
+        .logout-btn {
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .logout-btn img {
+            width: 14px;
+            height: 14px;
+            filter: brightness(0) invert(1);
+        }
+        
+        .content {
+            max-width: 500px;
+            width: 100%;
+            margin: 0 auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        h1 {
+            color: var(--secondary);
+            text-align: center;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--light);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            color: var(--light);
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(110, 69, 226, 0.3);
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary), #8921e8);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(110, 69, 226, 0.4);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(110, 69, 226, 0.6);
+        }
+        
+        button:disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .status-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .status-label {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .status-value {
+            font-weight: 500;
+        }
+        
+        .status-value.available {
+            color: var(--success);
+        }
+        
+        .status-value.limited {
+            color: var(--warning);
+        }
+        
+        .output-data {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid var(--primary);
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--light);
+            word-break: break-all;
+            display: none;
+        }
+        
+        .output-error {
+            border-left-color: var(--error);
+        }
+        
+        .output-success {
+            border-left-color: var(--success);
+        }
+        
+        .activity-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 3px solid var(--primary);
+        }
+        
+        .activity-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .activity-details {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+        
+        .activity-address {
+            font-family: monospace;
+            color: var(--secondary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .activity-address:hover {
+            text-decoration: underline;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: auto;
+            padding: 20px 0;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+        
+        .network-badge {
+            display: inline-block;
+            background: rgba(110, 69, 226, 0.2);
+            color: var(--primary);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .section-title {
+            color: var(--light); 
+            margin: 20px 0 15px; 
+            font-size: 1.3rem; 
+            font-weight: 500; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+            padding-bottom: 8px;
+        }
+        
+        /* reCAPTCHA styles */
         .g-recaptcha {
             margin: 15px 0;
             display: flex;
             justify-content: center;
         }
         
-        /* Add verification status styles */
         .verification-status {
             text-align: center;
             margin: 10px 0;
@@ -29,11 +297,19 @@
         .verification-status.expired {
             color: var(--warning);
         }
-</style>
+    </style>
 </head>
 <body>
     <div class="container">
-        <!-- ... (keep existing profile button and popup) ... -->
+        <button class="profile-btn" id="profileBtn">
+            <img id="userAvatar" src="" alt="Profile">
+        </button>
+        <div class="logout-popup" id="logoutPopup">
+            <button class="logout-btn" id="logoutBtn">
+                <img src="https://telegram.org/img/t_logo.png" alt="Logout">
+                Logout
+            </button>
+        </div>
 
         <div class="content">
             <h1>MON FAUCET</h1>
@@ -43,21 +319,45 @@
                 <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
             </div>
             
-            <!-- Add reCAPTCHA -->
             <div class="g-recaptcha" data-sitekey="6LcYI5ApAAAAAJcJ-V2nJqAm0GoqlZqkC-SnLt7X" data-callback="onCaptchaSuccess" data-expired-callback="onCaptchaExpired"></div>
             <div id="verificationStatus" class="verification-status"></div>
             
             <button id="requestButton">Request 0.1 MON</button>
             
-            <!-- Remove old verify buttons -->
-            
             <div class="output-data" id="outputData"></div>
             
-            <!-- ... (keep rest of the content) ... -->
+            <div class="status-card" id="statusCard">
+                <div class="status-row">
+                    <span class="status-label">Daily Limit</span>
+                    <span class="status-value">2 requests</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Your Requests Today</span>
+                    <span class="status-value" id="requestsCount">0/2</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Tokens per Request</span>
+                    <span class="status-value">0.1 MON</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Next Request Available</span>
+                    <span class="status-value" id="nextRequest">Now</span>
+                </div>
+            </div>
+            
+            <div class="section-title">Your Faucet History</div>
+            <div id="activityFeed">
+                <!-- Activity items will be added here -->
+            </div>
+            
+            <div class="footer">
+                © 2025 MON Faucet. All rights reserved.<br>
+                Network: <span class="network-badge">Testnet</span>
+            </div>
         </div>
     </div>
 
-    <!-- Add popunder script -->
+    <!-- Popunder ads script -->
     <script type='text/javascript' src='//pl26588542.profitableratecpm.com/16/0f/6b/160f6bfa3fd6a89824e441d2914b127c.js'></script>
 
     <!-- Ethers.js with fallback -->
