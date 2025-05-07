@@ -3,8 +3,7 @@
 <head>
     <title>MON Faucet</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Google reCAPTCHA v3 -->
-    <script src="https://www.google.com/recaptcha/api.js?render=6Lcs7zErAAAAAFjdySIXvv-1JWcAFeBXPu5H0rH3"></script>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
         :root {
             --primary: #6e45e2;
@@ -278,23 +277,25 @@
             padding-bottom: 8px;
         }
         
+        /* reCAPTCHA styles */
+        .g-recaptcha {
+            margin: 15px 0;
+            display: flex;
+            justify-content: center;
+        }
+        
         .verification-status {
             text-align: center;
             margin: 10px 0;
             font-size: 0.9rem;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: rgba(255, 255, 255, 0.1);
         }
         
         .verification-status.verified {
-            background-color: rgba(76, 175, 80, 0.2);
             color: var(--success);
         }
         
-        .verification-status.verified::before {
-            content: "✓ ";
-            font-weight: bold;
+        .verification-status.expired {
+            color: var(--warning);
         }
     </style>
 </head>
@@ -318,9 +319,8 @@
                 <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
             </div>
             
-            <div id="verificationStatus" class="verification-status">
-                Please complete verification
-            </div>
+            <div class="g-recaptcha" data-sitekey="6LcYI5ApAAAAAJcJ-V2nJqAm0GoqlZqkC-SnLt7X" data-callback="onCaptchaSuccess" data-expired-callback="onCaptchaExpired"></div>
+            <div id="verificationStatus" class="verification-status"></div>
             
             <button id="requestButton">Request 0.1 MON</button>
             
