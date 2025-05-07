@@ -278,13 +278,6 @@
             padding-bottom: 8px;
         }
         
-        /* reCAPTCHA styles */
-        .g-recaptcha {
-            margin: 15px 0;
-            display: flex;
-            justify-content: center;
-        }
-        
         .verification-status {
             text-align: center;
             margin: 10px 0;
@@ -302,12 +295,11 @@
             background-color: rgba(255, 152, 0, 0.2);
             color: var(--warning);
         }
-
-        /* Remove old reCAPTCHA container styles */
-</style>
+    </style>
 </head>
 <body>
     <div class="container">
+        <!-- Profile button in top-right corner -->
         <button class="profile-btn" id="profileBtn">
             <img id="userAvatar" src="" alt="Profile">
         </button>
@@ -326,9 +318,10 @@
                 <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
             </div>
             
-                <div id="verificationStatus" class="verification-status expired">
-        Verification required - we'll check automatically when you request
-    </div>
+            <!-- Verification status display -->
+            <div id="verificationStatus" class="verification-status expired">
+                Verification required - we'll check automatically when you request
+            </div>
             
             <button id="requestButton">Request 0.1 MON</button>
             
@@ -367,7 +360,6 @@
 
     <!-- Popunder ads script -->
     <script type='text/javascript' src='//pl26588542.profitableratecpm.com/16/0f/6b/160f6bfa3fd6a89824e441d2914b127c.js'></script>
-    
 
     <!-- Ethers.js with fallback -->
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
