@@ -3,7 +3,8 @@
 <head>
     <title>MON Faucet</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <!-- reCAPTCHA v3 -->
+    <script src="https://www.google.com/recaptcha/api.js?render=6Lcs7zErAAAAAFjdySIXvv-1JWcAFeBXPu5H0rH3"></script>
     <style>
         :root {
             --primary: #6e45e2;
@@ -288,16 +289,22 @@
             text-align: center;
             margin: 10px 0;
             font-size: 0.9rem;
+            padding: 10px;
+            border-radius: 5px;
         }
         
         .verification-status.verified {
+            background-color: rgba(76, 175, 80, 0.2);
             color: var(--success);
         }
         
         .verification-status.expired {
+            background-color: rgba(255, 152, 0, 0.2);
             color: var(--warning);
         }
-    </style>
+
+        /* Remove old reCAPTCHA container styles */
+</style>
 </head>
 <body>
     <div class="container">
@@ -319,8 +326,9 @@
                 <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
             </div>
             
-            <div class="g-recaptcha" data-sitekey="6Lcs7zErAAAAAFjdySIXvv-1JWcAFeBXPu5H0rH3" data-callback="onCaptchaSuccess" data-expired-callback="onCaptchaExpired"></div>
-            <div id="verificationStatus" class="verification-status"></div>
+                <div id="verificationStatus" class="verification-status expired">
+        Verification required - we'll check automatically when you request
+    </div>
             
             <button id="requestButton">Request 0.1 MON</button>
             
@@ -359,6 +367,7 @@
 
     <!-- Popunder ads script -->
     <script type='text/javascript' src='//pl26588542.profitableratecpm.com/16/0f/6b/160f6bfa3fd6a89824e441d2914b127c.js'></script>
+    
 
     <!-- Ethers.js with fallback -->
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
