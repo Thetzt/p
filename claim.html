@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MON Faucet</title>
+    <title>MON Mining Faucet</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
@@ -111,6 +111,94 @@
             font-weight: 600;
         }
         
+        .balance-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            border-left: 3px solid var(--primary);
+        }
+        
+        .balance-title {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 5px;
+        }
+        
+        .balance-amount {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        
+        .mining-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .mining-title {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            color: var(--secondary);
+        }
+        
+        .mining-rate {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .mining-timer {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            color: var(--secondary);
+        }
+        
+        .mining-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary), #8921e8);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(110, 69, 226, 0.4);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(110, 69, 226, 0.6);
+        }
+        
+        button:disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .withdraw-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
         .input-group {
             margin-bottom: 15px;
         }
@@ -138,63 +226,6 @@
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 2px rgba(110, 69, 226, 0.3);
-        }
-        
-        button {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, var(--primary), #8921e8);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 15px rgba(110, 69, 226, 0.4);
-        }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(110, 69, 226, 0.6);
-        }
-        
-        button:disabled {
-            background: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.5);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .status-card {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .status-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-        
-        .status-label {
-            color: rgba(255, 255, 255, 0.7);
-        }
-        
-        .status-value {
-            font-weight: 500;
-        }
-        
-        .status-value.available {
-            color: var(--success);
-        }
-        
-        .status-value.limited {
-            color: var(--warning);
         }
         
         .output-data {
@@ -312,46 +343,45 @@
         </div>
 
         <div class="content">
-            <h1>MON FAUCET</h1>
+            <h1>MON MINING</h1>
             
-            <div class="input-group">
-                <label><strong>MON Address</strong></label>
-                <input type="text" id="address" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
+            <div class="balance-card">
+                <div class="balance-title">Your MON Balance</div>
+                <div class="balance-amount" id="userBalance">0.0000 MON</div>
             </div>
             
-            <div class="g-recaptcha" data-sitekey="6Lcm_TErAAAAAPeKyGSvSI2jpcomd0dgMNvVD_no" data-callback="onCaptchaSuccess" data-expired-callback="onCaptchaExpired"></div>
-            <div id="verificationStatus" class="verification-status"></div>
+            <div class="mining-container">
+                <div class="mining-title">Mining Status</div>
+                <div class="mining-rate">
+                    <span>Mining Rate:</span>
+                    <span>0.0001 MON / 2 hours</span>
+                </div>
+                <div class="mining-timer" id="miningTimer">Ready to claim!</div>
+                <div class="mining-actions">
+                    <button id="claimButton">Claim MON</button>
+                    <div class="g-recaptcha" id="miningCaptcha" data-sitekey="6LcYI5ApAAAAAJcJ-V2nJqAm0GoqlZqkC-SnLt7X" data-callback="onCaptchaSuccess" data-expired-callback="onCaptchaExpired" style="display:none;"></div>
+                    <div id="verificationStatus" class="verification-status"></div>
+                </div>
+            </div>
             
-            <button id="requestButton">Request 0.1 MON</button>
+            <div class="withdraw-container">
+                <div class="section-title">Withdraw MON</div>
+                <div class="input-group">
+                    <label><strong>MON Address</strong></label>
+                    <input type="text" id="withdrawAddress" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
+                </div>
+                <button id="withdrawButton">Withdraw</button>
+            </div>
             
             <div class="output-data" id="outputData"></div>
             
-            <div class="status-card" id="statusCard">
-                <div class="status-row">
-                    <span class="status-label">Daily Limit</span>
-                    <span class="status-value">2 requests</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Your Requests Today</span>
-                    <span class="status-value" id="requestsCount">0/2</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Tokens per Request</span>
-                    <span class="status-value">0.1 MON</span>
-                </div>
-                <div class="status-row">
-                    <span class="status-label">Next Request Available</span>
-                    <span class="status-value" id="nextRequest">Now</span>
-                </div>
-            </div>
-            
-            <div class="section-title">Your Faucet History</div>
+            <div class="section-title">Mining History</div>
             <div id="activityFeed">
                 <!-- Activity items will be added here -->
             </div>
             
             <div class="footer">
-                © 2025 MON Faucet. All rights reserved.<br>
+                © 2025 MON Mining. All rights reserved.<br>
                 Network: <span class="network-badge">Testnet</span>
             </div>
         </div>
