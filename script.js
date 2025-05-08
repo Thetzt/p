@@ -1,8 +1,7 @@
 // Global state
 let verificationExpiry = JSON.parse(localStorage.getItem('verificationExpiry')) || {};
-let miningData = JSON.parse(localStorage.getItem('miningData')) || {};
+let faucetData = JSON.parse(localStorage.getItem('faucetData')) || {};
 let userTransactions = JSON.parse(localStorage.getItem('userTransactions')) || {};
-let miningInterval;
 let countdownInterval;
 
 // Configuration
@@ -10,8 +9,10 @@ const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
     chainId: 10143,
-    miningRate: 0.0001, // MON per 2 hours
-    miningInterval: 2 * 60 * 60 * 1000, // 2 hours in ms
+    claimRate: 0.0001, // MON per hour
+    claimInterval: 60 * 60 * 1000, // 1 hour in ms
+    minWithdraw: 0.01, // Minimum withdrawal amount
+    verificationDuration: 5 * 60 * 1000, // 5 minutes for captcha
     explorerUrl: 'https://testnet.monadexplorer.com'
 };
 
@@ -54,18 +55,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.location.href = 'index.html';
     });
 
-    // Initialize mining data for user if not exists
-    if (!miningData[telegramUser.id]) {
-        miningData[telegramUser.id] = {
+    // Initialize faucet data for user if not exists
+    if (!faucetData[telegramUser.id]) {
+        faucetData[telegramUser.id] = {
             balance: 0,
             lastClaim: 0
         };
-        localStorage.setItem('miningData', JSON.stringify(miningData));
+        localStorage.setItem('faucetData', JSON.stringify(faucetData));
     }
 
     setupEventListeners();
     updateUI();
-    startMiningTimer();
+    startCountdown();
 });
 
 function setupEventListeners() {
@@ -76,7 +77,7 @@ function setupEventListeners() {
 
 function updateUI() {
     updateBalanceDisplay();
-    updateMiningTimer();
+    updateFaucetTimer();
     updateVerificationStatus();
     renderActivityFeed();
 }
@@ -85,7 +86,7 @@ function updateBalanceDisplay() {
     const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     if (!telegramUser) return;
     
-    const userData = miningData[telegramUser.id] || { balance: 0 };
+    const userData = faucetData[telegramUser.id] || { balance: 0 };
     document.getElementById('userBalance').textContent = userData.balance.toFixed(4) + ' MON';
 }
 
@@ -113,68 +114,64 @@ function updateVerificationStatus() {
     }
 }
 
-function startMiningTimer() {
+function startCountdown() {
+    clearInterval(countdownInterval);
+    
     const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     if (!telegramUser) return;
     
-    const userData = miningData[telegramUser.id] || { lastClaim: 0 };
+    const userData = faucetData[telegramUser.id] || { lastClaim: 0 };
     const now = Date.now();
     const timeSinceLastClaim = now - userData.lastClaim;
     
-    // If it's been more than mining interval, reset timer
-    if (timeSinceLastClaim >= config.miningInterval) {
-        document.getElementById('miningTimer').textContent = 'Ready to claim!';
+    // If it's been more than claim interval, show empty timer
+    if (timeSinceLastClaim >= config.claimInterval) {
+        document.getElementById('faucetTimer').textContent = '';
         return;
     }
     
     // Otherwise start countdown
-    const timeLeft = config.miningInterval - timeSinceLastClaim;
-    startCountdown(timeLeft);
-}
-
-function startCountdown(timeLeft) {
-    clearInterval(countdownInterval);
-    
-    const timerElement = document.getElementById('miningTimer');
-    const endTime = Date.now() + timeLeft;
+    const timeLeft = config.claimInterval - timeSinceLastClaim;
+    updateTimerDisplay(timeLeft);
     
     countdownInterval = setInterval(() => {
-        const remaining = endTime - Date.now();
+        const remaining = userData.lastClaim + config.claimInterval - Date.now();
         
         if (remaining <= 0) {
             clearInterval(countdownInterval);
-            timerElement.textContent = 'Ready to claim!';
+            document.getElementById('faucetTimer').textContent = '';
             return;
         }
         
-        const hours = Math.floor(remaining / (1000 * 60 * 60));
-        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-        
-        timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        updateTimerDisplay(remaining);
     }, 1000);
+}
+
+function updateTimerDisplay(ms) {
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+    
+    document.getElementById('faucetTimer').textContent = 
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
 function startClaimProcess() {
     const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     if (!telegramUser) return;
     
-    const userData = miningData[telegramUser.id] || { lastClaim: 0 };
+    const userData = faucetData[telegramUser.id] || { lastClaim: 0 };
     const now = Date.now();
     const timeSinceLastClaim = now - userData.lastClaim;
     
-    if (timeSinceLastClaim < config.miningInterval) {
-        showOutput(`Please wait ${formatTime(config.miningInterval - timeSinceLastClaim)} before claiming again`, 'error', 4000);
+    if (timeSinceLastClaim < config.claimInterval) {
+        showOutput(`Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`, 'error', 4000);
         return;
     }
     
-    if (!isTelegramVerified(telegramUser.id)) {
-        document.getElementById('miningCaptcha').style.display = 'block';
-        showOutput('Please complete the reCAPTCHA verification', 'error', 4000);
-        return;
-    }
-    
-    claimMON();
+    // Show reCAPTCHA
+    document.getElementById('faucetCaptcha').style.display = 'block';
+    grecaptcha.reset();
 }
 
 function claimMON() {
@@ -186,17 +183,17 @@ function claimMON() {
     showOutput('Claiming MON...', 'info');
     
     setTimeout(() => {
-        // Update mining data
-        const userData = miningData[telegramUser.id] || { balance: 0, lastClaim: 0 };
-        userData.balance += config.miningRate;
+        // Update faucet data
+        const userData = faucetData[telegramUser.id] || { balance: 0, lastClaim: 0 };
+        userData.balance += config.claimRate;
         userData.lastClaim = Date.now();
-        miningData[telegramUser.id] = userData;
-        localStorage.setItem('miningData', JSON.stringify(miningData));
+        faucetData[telegramUser.id] = userData;
+        localStorage.setItem('faucetData', JSON.stringify(faucetData));
         
         // Record transaction
         const txRecord = {
             type: 'claim',
-            amount: config.miningRate,
+            amount: config.claimRate,
             timestamp: new Date().toISOString(),
             telegramId: telegramUser.id
         };
@@ -206,9 +203,9 @@ function claimMON() {
         userTransactions[telegramUser.id] = userTx;
         localStorage.setItem('userTransactions', JSON.stringify(userTransactions));
         
-        showOutput(`Success! Claimed ${config.miningRate} MON`, 'success', 4000);
+        showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
         updateUI();
-        startCountdown(config.miningInterval);
+        startCountdown();
         claimBtn.disabled = false;
     }, 1500); // Simulate network delay
 }
@@ -227,9 +224,9 @@ async function processWithdrawal() {
         return;
     }
     
-    const userData = miningData[telegramUser.id] || { balance: 0 };
-    if (userData.balance <= 0) {
-        showOutput('No MON balance to withdraw', 'error', 4000);
+    const userData = faucetData[telegramUser.id] || { balance: 0 };
+    if (userData.balance < config.minWithdraw) {
+        showOutput(`Minimum withdrawal is ${config.minWithdraw} MON`, 'error', 4000);
         return;
     }
     
@@ -272,8 +269,8 @@ async function processWithdrawal() {
         
         // Update balance
         userData.balance = 0;
-        miningData[telegramUser.id] = userData;
-        localStorage.setItem('miningData', JSON.stringify(miningData));
+        faucetData[telegramUser.id] = userData;
+        localStorage.setItem('faucetData', JSON.stringify(faucetData));
         
         updateUI();
         showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
@@ -300,10 +297,10 @@ function onCaptchaSuccess(token) {
     if (!telegramUser) return;
     
     // Hide captcha
-    document.getElementById('miningCaptcha').style.display = 'none';
+    document.getElementById('faucetCaptcha').style.display = 'none';
     
-    // Set verification to expire in 1 hour
-    verificationExpiry[telegramUser.id] = Date.now() + (60 * 60 * 1000);
+    // Set verification to expire in 5 minutes
+    verificationExpiry[telegramUser.id] = Date.now() + config.verificationDuration;
     localStorage.setItem('verificationExpiry', JSON.stringify(verificationExpiry));
     
     showOutput('Verification successful!', 'success', 4000);
@@ -333,7 +330,7 @@ function renderActivityFeed() {
     const userTx = userTransactions[telegramUser.id] || [];
     
     if (userTx.length === 0) {
-        activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No mining activity yet</p>';
+        activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No faucet activity yet</p>';
         return;
     }
     
