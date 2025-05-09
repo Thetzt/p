@@ -1,4 +1,26 @@
-// Global configuration
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
+  authDomain: "claimpx.firebaseapp.com",
+  projectId: "claimpx",
+  storageBucket: "claimpx.firebasestorage.app",
+  messagingSenderId: "1012471480360",
+  appId: "1:1012471480360:web:3b16bc6acc6adcf371b51d",
+  measurementId: "G-NYK5SSMCF3"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// Global state
+let countdownInterval;
+let captchaVerified = false;
+let currentUser = null;
+let userData = null;
+let userTransactions = [];
+
+// Configuration
 const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
@@ -14,49 +36,16 @@ const config = {
 document.addEventListener('DOMContentLoaded', async function() {
     if (!document.getElementById('claimButton')) return;
     
-    const telegramUser = getTelegramUser();
+    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     if (!telegramUser) {
         window.location.href = 'index.html';
         return;
     }
 
-    setupProfile();
-    setupEventListeners();
-    initializeUserData(telegramUser.id);
-    updateUI();
-    startCountdown();
-    
-    // Sync data every 5 seconds
-    setInterval(() => {
-        updateUI();
-    }, 5000);
-});
+    currentUser = telegramUser;
 
-// Helper functions
-function getTelegramUser() {
-    return JSON.parse(localStorage.getItem('telegramUser'));
-}
-
-function getFaucetData() {
-    return JSON.parse(localStorage.getItem('faucetData')) || {};
-}
-
-function getUserTransactions() {
-    return JSON.parse(localStorage.getItem('userTransactions')) || {};
-}
-
-function saveFaucetData(data) {
-    localStorage.setItem('faucetData', JSON.stringify(data));
-}
-
-function saveUserTransactions(transactions) {
-    localStorage.setItem('userTransactions', JSON.stringify(transactions));
-}
-
-function setupProfile() {
-    const telegramUser = getTelegramUser();
+    // Profile setup
     const userAvatar = document.getElementById('userAvatar');
-    
     if (telegramUser.photo_url) {
         userAvatar.src = telegramUser.photo_url;
     } else {
@@ -83,6 +72,42 @@ function setupProfile() {
         localStorage.removeItem('telegramUser');
         window.location.href = 'index.html';
     });
+
+    // Load user data from Firebase
+    await loadUserData();
+    setupEventListeners();
+    updateUI();
+    startCountdown();
+});
+
+async function loadUserData() {
+    const userRef = database.ref('users/' + currentUser.id);
+    
+    return new Promise((resolve) => {
+        userRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                userData = data;
+                if (!userData.balance) userData.balance = 0;
+                if (!userData.lastClaim) userData.lastClaim = 0;
+            } else {
+                // Initialize new user
+                userData = {
+                    balance: 0,
+                    lastClaim: 0
+                };
+                userRef.set(userData);
+            }
+            
+            // Load transactions
+            const txRef = database.ref('transactions/' + currentUser.id);
+            txRef.on('value', (txSnapshot) => {
+                const txData = txSnapshot.val();
+                userTransactions = txData ? Object.values(txData) : [];
+                resolve();
+            });
+        });
+    });
 }
 
 function setupEventListeners() {
@@ -91,51 +116,32 @@ function setupEventListeners() {
     document.getElementById('withdrawAddress').addEventListener('input', updateUI);
 }
 
-function initializeUserData(telegramId) {
-    const faucetData = getFaucetData();
-    
-    if (!faucetData[telegramId]) {
-        faucetData[telegramId] = {
-            balance: 0,
-            lastClaim: 0
-        };
-        saveFaucetData(faucetData);
-    }
-}
-
 function updateUI() {
-    const telegramUser = getTelegramUser();
-    if (!telegramUser) return;
-    
-    const faucetData = getFaucetData();
-    const userData = faucetData[telegramUser.id] || { balance: 0, lastClaim: 0 };
-    
-    // Update balance display
-    document.getElementById('userBalance').textContent = userData.balance.toFixed(4) + ' MON';
-    
-    // Update timer
+    updateBalanceDisplay();
     updateFaucetTimer();
-    
-    // Update activity feed
     renderActivityFeed();
 }
 
-function updateFaucetTimer() {
+function updateBalanceDisplay() {
+    if (!userData) return;
+    document.getElementById('userBalance').textContent = userData.balance.toFixed(4) + ' MON';
+}
+
+function startCountdown() {
     clearInterval(countdownInterval);
     
-    const telegramUser = getTelegramUser();
-    if (!telegramUser) return;
+    if (!userData) return;
     
-    const faucetData = getFaucetData();
-    const userData = faucetData[telegramUser.id] || { lastClaim: 0 };
     const now = Date.now();
     const timeSinceLastClaim = now - userData.lastClaim;
     
+    // If it's been more than claim interval, show empty timer
     if (timeSinceLastClaim >= config.claimInterval) {
         document.getElementById('faucetTimer').textContent = '';
         return;
     }
     
+    // Otherwise start countdown
     const timeLeft = config.claimInterval - timeSinceLastClaim;
     updateTimerDisplay(timeLeft);
     
@@ -162,11 +168,8 @@ function updateTimerDisplay(ms) {
 }
 
 function startClaimProcess() {
-    const telegramUser = getTelegramUser();
-    if (!telegramUser) return;
+    if (!userData) return;
     
-    const faucetData = getFaucetData();
-    const userData = faucetData[telegramUser.id] || { lastClaim: 0 };
     const now = Date.now();
     const timeSinceLastClaim = now - userData.lastClaim;
     
@@ -175,62 +178,70 @@ function startClaimProcess() {
         return;
     }
     
-    if (window.captchaVerified) {
-        processClaim();
+    // Check if already verified
+    if (captchaVerified) {
+        claimMON();
         return;
     }
     
+    // Show reCAPTCHA
     document.getElementById('faucetCaptcha').style.display = 'block';
     grecaptcha.reset();
     showOutput('Please complete robot verification first', 'info');
 }
 
-function processClaim() {
-    const telegramUser = getTelegramUser();
-    if (!telegramUser) return;
+async function claimMON() {
+    if (!userData || !currentUser) return;
     
     const claimBtn = document.getElementById('claimButton');
     claimBtn.disabled = true;
     
     showOutput('Claiming MON...', 'info');
     
-    setTimeout(() => {
-        const faucetData = getFaucetData();
-        const userData = faucetData[telegramUser.id] || { balance: 0, lastClaim: 0 };
+    try {
+        // Update user data in Firebase
+        const updates = {};
+        const newBalance = userData.balance + config.claimRate;
+        const now = Date.now();
         
-        // Update balance and last claim time
-        userData.balance += config.claimRate;
-        userData.lastClaim = Date.now();
-        faucetData[telegramUser.id] = userData;
-        saveFaucetData(faucetData);
+        updates['users/' + currentUser.id + '/balance'] = newBalance;
+        updates['users/' + currentUser.id + '/lastClaim'] = now;
         
-        // Record transaction
-        const userTransactions = getUserTransactions();
+        // Create transaction record
+        const txId = database.ref('transactions/' + currentUser.id).push().key;
         const txRecord = {
             type: 'claim',
             amount: config.claimRate,
-            timestamp: new Date().toISOString(),
-            telegramId: telegramUser.id
+            timestamp: now,
+            telegramId: currentUser.id
         };
         
-        const userTx = userTransactions[telegramUser.id] || [];
-        userTx.push(txRecord);
-        userTransactions[telegramUser.id] = userTx;
-        saveUserTransactions(userTransactions);
+        updates['transactions/' + currentUser.id + '/' + txId] = txRecord;
+        
+        // Update all data in one transaction
+        await database.ref().update(updates);
+        
+        // Update local state
+        userData.balance = newBalance;
+        userData.lastClaim = now;
+        userTransactions.push(txRecord);
         
         showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
         updateUI();
         startCountdown();
+        captchaVerified = false;
+    } catch (error) {
+        console.error('Claim error:', error);
+        showOutput('Failed to claim MON. Please try again.', 'error', 4000);
+    } finally {
         claimBtn.disabled = false;
-        window.captchaVerified = false;
-    }, 1500);
+    }
 }
 
 async function processWithdrawal() {
     const address = document.getElementById('withdrawAddress').value.trim();
-    const telegramUser = getTelegramUser();
     
-    if (!telegramUser) {
+    if (!currentUser) {
         showOutput('Please login with Telegram first', 'error', 4000);
         return;
     }
@@ -240,10 +251,7 @@ async function processWithdrawal() {
         return;
     }
     
-    const faucetData = getFaucetData();
-    const userData = faucetData[telegramUser.id] || { balance: 0 };
-    
-    if (userData.balance < config.minWithdraw) {
+    if (!userData || userData.balance < config.minWithdraw) {
         showOutput(`Minimum withdrawal is ${config.minWithdraw} MON`, 'error', 4000);
         return;
     }
@@ -270,26 +278,26 @@ async function processWithdrawal() {
             value: ethers.utils.parseEther(userData.balance.toString())
         });
         
-        // Record transaction
-        const userTransactions = getUserTransactions();
+        // Update Firebase data
+        const updates = {};
+        const txId = database.ref('transactions/' + currentUser.id).push().key;
         const txRecord = {
             type: 'withdraw',
             hash: tx.hash,
             to: address,
             amount: userData.balance,
-            timestamp: new Date().toISOString(),
-            telegramId: telegramUser.id
+            timestamp: Date.now(),
+            telegramId: currentUser.id
         };
         
-        const userTx = userTransactions[telegramUser.id] || [];
-        userTx.push(txRecord);
-        userTransactions[telegramUser.id] = userTx;
-        saveUserTransactions(userTransactions);
+        updates['users/' + currentUser.id + '/balance'] = 0;
+        updates['transactions/' + currentUser.id + '/' + txId] = txRecord;
         
-        // Update balance
+        await database.ref().update(updates);
+        
+        // Update local state
         userData.balance = 0;
-        faucetData[telegramUser.id] = userData;
-        saveFaucetData(faucetData);
+        userTransactions.push(txRecord);
         
         updateUI();
         showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
@@ -313,19 +321,20 @@ async function processWithdrawal() {
 // reCAPTCHA callbacks
 function onCaptchaSuccess(token) {
     document.getElementById('faucetCaptcha').style.display = 'none';
-    window.captchaVerified = true;
+    captchaVerified = true;
     showOutput('Verification successful! Click Claim MON again to receive your MON', 'success', 4000);
     
+    // Auto-expire after 5 minutes
     setTimeout(() => {
-        if (window.captchaVerified) {
-            window.captchaVerified = false;
+        if (captchaVerified) {
+            captchaVerified = false;
             showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
         }
     }, config.captchaDuration);
 }
 
 function onCaptchaExpired() {
-    window.captchaVerified = false;
+    captchaVerified = false;
     showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
 }
 
@@ -333,20 +342,17 @@ function renderActivityFeed() {
     const activityFeed = document.getElementById('activityFeed');
     activityFeed.innerHTML = '';
     
-    const telegramUser = getTelegramUser();
-    if (!telegramUser) return;
+    if (!currentUser) return;
     
-    const userTransactions = getUserTransactions();
-    const userTx = userTransactions[telegramUser.id] || [];
-    
-    if (userTx.length === 0) {
+    if (userTransactions.length === 0) {
         activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No faucet activity yet</p>';
         return;
     }
     
-    userTx.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    // Sort transactions by timestamp (newest first)
+    const sortedTx = [...userTransactions].sort((a, b) => b.timestamp - a.timestamp);
     
-    userTx.forEach(tx => {
+    sortedTx.forEach(tx => {
         const date = new Date(tx.timestamp);
         const dateStr = date.toLocaleDateString();
         const timeStr = date.toLocaleTimeString();
