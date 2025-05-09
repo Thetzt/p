@@ -316,20 +316,6 @@
             width: 100%;
         }
         
-        .verification-status {
-            text-align: center;
-            margin: 10px 0;
-            font-size: 0.9rem;
-        }
-        
-        .verification-status.verified {
-            color: var(--success);
-        }
-        
-        .verification-status.expired {
-            color: var(--warning);
-        }
-        
         .min-amount {
             color: rgba(255, 255, 255, 0.7);
             font-size: 0.8rem;
@@ -362,14 +348,13 @@
                 <div class="faucet-title">Faucet Status</div>
                 <div class="faucet-rate">
                     <span>Claim Rate:</span>
-                    <span>0.0001 MON / hour</span>
+                    <span>0.001 MON / hour</span>
                 </div>
                 <div class="faucet-timer" id="faucetTimer"></div>
                 <button id="claimButton">Claim MON</button>
                 <div class="recaptcha-container">
                     <div class="g-recaptcha" id="faucetCaptcha" data-sitekey="6Lfg_TIrAAAAAAxRwYJqAEephBWwWwIuGkhPvXaV" data-callback="onCaptchaSuccess" data-expired-callback="onCaptchaExpired" style="display:none;"></div>
                 </div>
-                <div id="verificationStatus" class="verification-status"></div>
             </div>
             
             <div class="output-data" id="outputData"></div>
