@@ -1,18 +1,18 @@
 // Global state
-let verificationExpiry = JSON.parse(localStorage.getItem('verificationExpiry')) || {};
 let faucetData = JSON.parse(localStorage.getItem('faucetData')) || {};
 let userTransactions = JSON.parse(localStorage.getItem('userTransactions')) || {};
 let countdownInterval;
+let captchaVerified = false;
 
 // Configuration
 const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
     chainId: 10143,
-    claimRate: 0.0001, // MON per hour
+    claimRate: 0.001, // MON per hour
     claimInterval: 60 * 60 * 1000, // 1 hour in ms
     minWithdraw: 0.01, // Minimum withdrawal amount
-    verificationDuration: 5 * 60 * 1000, // 5 minutes for captcha
+    captchaDuration: 5 * 60 * 1000, // 5 minutes for captcha
     explorerUrl: 'https://testnet.monadexplorer.com'
 };
 
@@ -59,7 +59,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!faucetData[telegramUser.id]) {
         faucetData[telegramUser.id] = {
             balance: 0,
-            lastClaim: 0
+            lastClaim: 0,
+            lastDevice: null
         };
         localStorage.setItem('faucetData', JSON.stringify(faucetData));
     }
@@ -78,7 +79,6 @@ function setupEventListeners() {
 function updateUI() {
     updateBalanceDisplay();
     updateFaucetTimer();
-    updateVerificationStatus();
     renderActivityFeed();
 }
 
@@ -88,30 +88,6 @@ function updateBalanceDisplay() {
     
     const userData = faucetData[telegramUser.id] || { balance: 0 };
     document.getElementById('userBalance').textContent = userData.balance.toFixed(4) + ' MON';
-}
-
-function updateVerificationStatus() {
-    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
-    if (!telegramUser) return;
-    
-    const statusEl = document.getElementById('verificationStatus');
-    const isVerified = isTelegramVerified(telegramUser.id);
-    
-    if (isVerified) {
-        const expiryTime = new Date(verificationExpiry[telegramUser.id]);
-        const timeLeft = Math.floor((expiryTime - Date.now()) / (60 * 1000));
-        
-        if (timeLeft > 0) {
-            statusEl.textContent = `✓ Verified (expires in ${timeLeft} minutes)`;
-            statusEl.className = 'verification-status verified';
-        } else {
-            statusEl.textContent = 'Verification expired. Please complete reCAPTCHA again.';
-            statusEl.className = 'verification-status expired';
-        }
-    } else {
-        statusEl.textContent = 'Please complete the reCAPTCHA verification';
-        statusEl.className = 'verification-status expired';
-    }
 }
 
 function startCountdown() {
@@ -169,9 +145,16 @@ function startClaimProcess() {
         return;
     }
     
+    // Check if already verified
+    if (captchaVerified) {
+        claimMON();
+        return;
+    }
+    
     // Show reCAPTCHA
     document.getElementById('faucetCaptcha').style.display = 'block';
     grecaptcha.reset();
+    showOutput('Please complete robot verification first', 'info');
 }
 
 function claimMON() {
@@ -180,13 +163,25 @@ function claimMON() {
     
     const claimBtn = document.getElementById('claimButton');
     claimBtn.disabled = true;
+    
+    // Generate device fingerprint
+    const deviceFingerprint = generateDeviceFingerprint();
+    const userData = faucetData[telegramUser.id] || { balance: 0, lastClaim: 0, lastDevice: null };
+    
+    // Check if this is a different device
+    if (userData.lastDevice && userData.lastDevice !== deviceFingerprint) {
+        showOutput('You can only claim from one device per account', 'error', 4000);
+        claimBtn.disabled = false;
+        return;
+    }
+    
     showOutput('Claiming MON...', 'info');
     
     setTimeout(() => {
         // Update faucet data
-        const userData = faucetData[telegramUser.id] || { balance: 0, lastClaim: 0 };
         userData.balance += config.claimRate;
         userData.lastClaim = Date.now();
+        userData.lastDevice = deviceFingerprint;
         faucetData[telegramUser.id] = userData;
         localStorage.setItem('faucetData', JSON.stringify(faucetData));
         
@@ -207,7 +202,18 @@ function claimMON() {
         updateUI();
         startCountdown();
         claimBtn.disabled = false;
+        captchaVerified = false;
     }, 1500); // Simulate network delay
+}
+
+function generateDeviceFingerprint() {
+    // Simple device fingerprint based on browser and screen properties
+    const userAgent = navigator.userAgent;
+    const screenWidth = screen.width;
+    const screenHeight = screen.height;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    return `${userAgent}-${screenWidth}-${screenHeight}-${timezone}`;
 }
 
 async function processWithdrawal() {
@@ -293,31 +299,22 @@ async function processWithdrawal() {
 
 // reCAPTCHA callbacks
 function onCaptchaSuccess(token) {
-    const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
-    if (!telegramUser) return;
-    
-    // Hide captcha
     document.getElementById('faucetCaptcha').style.display = 'none';
+    captchaVerified = true;
+    showOutput('Verification successful! Click Claim MON again to receive your MON', 'success', 4000);
     
-    // Set verification to expire in 5 minutes
-    verificationExpiry[telegramUser.id] = Date.now() + config.verificationDuration;
-    localStorage.setItem('verificationExpiry', JSON.stringify(verificationExpiry));
-    
-    showOutput('Verification successful!', 'success', 4000);
-    updateVerificationStatus();
-    
-    // Proceed with claim
-    claimMON();
+    // Auto-expire after 5 minutes
+    setTimeout(() => {
+        if (captchaVerified) {
+            captchaVerified = false;
+            showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
+        }
+    }, config.captchaDuration);
 }
 
 function onCaptchaExpired() {
+    captchaVerified = false;
     showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
-    updateVerificationStatus();
-}
-
-function isTelegramVerified(telegramId) {
-    const expiryTime = verificationExpiry[telegramId] || 0;
-    return Date.now() < expiryTime;
 }
 
 function renderActivityFeed() {
