@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Login Demo</title>
+    <title>Telegram Login with Rewards</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -14,63 +14,90 @@
             margin: 0;
             background-color: #f5f5f5;
         }
-        .login-container {
+        .container {
             text-align: center;
             padding: 30px;
             background: white;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            width: 300px;
+            width: 320px;
         }
         h1 {
             color: #0088cc;
             margin-bottom: 20px;
         }
-        #telegram-login-button {
+        #telegram-login-container {
             margin: 20px 0;
         }
-        #user-data {
-            margin-top: 20px;
-            padding: 10px;
-            background: #f0f8ff;
-            border-radius: 5px;
+        #claim-container {
             display: none;
+            margin-top: 20px;
+        }
+        #claim-btn {
+            background-color: #0088cc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #claim-btn:hover {
+            background-color: #006699;
+        }
+        #user-balance {
+            font-size: 18px;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        #user-info {
+            margin-bottom: 20px;
+        }
+        #user-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <h1>Telegram Login</h1>
-        <p>Sign in with your Telegram account</p>
+    <div class="container">
+        <h1>Telegram Rewards</h1>
         
-        <!-- This div will contain the Telegram button -->
-        <div id="telegram-login-button"></div>
+        <div id="telegram-login-container">
+            <p>Login with Telegram to claim rewards</p>
+            <div id="telegram-login-button"></div>
+        </div>
         
-        <!-- This will display user data after login -->
-        <div id="user-data">
-            <h3>User Information</h3>
-            <p id="user-name"></p>
-            <p id="user-username"></p>
-            <img id="user-photo" src="" alt="Profile photo" style="max-width: 100px; border-radius: 50%; display: none;">
+        <div id="claim-container">
+            <div id="user-info">
+                <img id="user-photo" src="" alt="Profile Photo" style="display: none;">
+                <h3 id="user-name"></h3>
+                <p id="user-username"></p>
+            </div>
+            
+            <button id="claim-btn">CLAIM +100 P</button>
+            <div id="user-balance">Balance: 0 P</div>
         </div>
     </div>
 
-    <!-- Load Telegram widget script -->
+    <!-- Telegram Widget Script -->
     <script async src="https://telegram.org/js/telegram-widget.js?22" 
             data-telegram-login="uxxucc_bot" 
             data-size="large" 
-            data-radius="10" 
+            data-radius="20" 
             data-onauth="onTelegramAuth(user)" 
             data-request-access="write"></script>
 
-    <!-- Firebase and main app script -->
+    <!-- Firebase and App Script -->
     <script type="module">
-        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-        import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-database.js";
+        import { getDatabase, ref, set, get, update } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-database.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
 
-        // Your Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
             authDomain: "claimpx.firebaseapp.com",
@@ -81,61 +108,107 @@
             measurementId: "G-NYK5SSMCF3"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const database = getDatabase(app);
+        let currentUser = null;
 
-        // This function will be called when user logs in with Telegram
-        window.onTelegramAuth = async (user) => {
+        // Handle Telegram login
+        window.onTelegramAuth = async (telegramUser) => {
             try {
-                console.log("Telegram user data:", user);
-                
-                // Show user data on the page
-                document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name || ''}`;
-                document.getElementById('user-username').textContent = `@${user.username || 'no-username'}`;
-                
-                if (user.photo_url) {
-                    document.getElementById('user-photo').src = user.photo_url;
-                    document.getElementById('user-photo').style.display = 'block';
-                }
-                
-                document.getElementById('user-data').style.display = 'block';
-                
-                // Sign in anonymously to Firebase
+                // Sign in to Firebase (anonymously or with custom token)
                 const userCredential = await signInAnonymously(auth);
+                currentUser = userCredential.user;
                 
-                // Save Telegram user data to Firebase
-                await saveUserData(userCredential.user.uid, user);
+                // Save/update user data in Firebase
+                await saveUserData(telegramUser);
                 
-                console.log("Data saved to Firebase successfully");
+                // Hide login button, show claim section
+                document.getElementById('telegram-login-container').style.display = 'none';
+                document.getElementById('claim-container').style.display = 'block';
+                
+                // Display user info
+                displayUserInfo(telegramUser);
+                
+                // Load user balance
+                await loadUserBalance(telegramUser.id);
+                
             } catch (error) {
-                console.error("Error saving data:", error);
-                alert('Error saving data. See console for details.');
+                console.error("Login error:", error);
+                alert("Login failed. Please try again.");
             }
         };
 
         // Save user data to Firebase
-        async function saveUserData(userId, telegramData) {
-            const userRef = ref(database, 'telegramUsers/' + telegramData.id);
+        async function saveUserData(telegramUser) {
+            const userRef = ref(database, `users/${telegramUser.id}`);
             
             await set(userRef, {
-                id: telegramData.id,
-                firstName: telegramData.first_name,
-                lastName: telegramData.last_name || '',
-                username: telegramData.username || '',
-                photoUrl: telegramData.photo_url || '',
-                authDate: telegramData.auth_date,
-                hash: telegramData.hash,
+                id: telegramUser.id,
+                firstName: telegramUser.first_name,
+                lastName: telegramUser.last_name || '',
+                username: telegramUser.username || '',
+                photoUrl: telegramUser.photo_url || '',
+                authDate: telegramUser.auth_date,
                 lastLogin: new Date().toISOString(),
-                firebaseUid: userId
+                balance: 0 // Initialize balance to 0
             });
         }
 
-        // Initialize Telegram button after page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            // This ensures the button container is ready
-            console.log("Page loaded, Telegram button should appear soon");
+        // Display user information
+        function displayUserInfo(user) {
+            document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name || ''}`;
+            document.getElementById('user-username').textContent = `@${user.username || 'no-username'}`;
+            
+            if (user.photo_url) {
+                const photo = document.getElementById('user-photo');
+                photo.src = user.photo_url;
+                photo.style.display = 'block';
+            }
+        }
+
+        // Load user's balance
+        async function loadUserBalance(userId) {
+            const balanceRef = ref(database, `users/${userId}/balance`);
+            const snapshot = await get(balanceRef);
+            
+            if (snapshot.exists()) {
+                document.getElementById('user-balance').textContent = `Balance: ${snapshot.val()} P`;
+            }
+        }
+
+        // Handle claim button click
+        document.getElementById('claim-btn').addEventListener('click', async () => {
+            if (!currentUser) return;
+            
+            try {
+                // Get Telegram user ID from the URL hash
+                const urlParams = new URLSearchParams(window.location.hash.slice(1));
+                const telegramUser = JSON.parse(urlParams.get('user'));
+                
+                if (!telegramUser || !telegramUser.id) {
+                    throw new Error("User data not found");
+                }
+                
+                // Update balance in Firebase
+                const userRef = ref(database, `users/${telegramUser.id}`);
+                const snapshot = await get(ref(database, `users/${telegramUser.id}/balance`));
+                const currentBalance = snapshot.exists() ? snapshot.val() : 0;
+                const newBalance = currentBalance + 100;
+                
+                await update(userRef, {
+                    balance: newBalance,
+                    lastClaim: new Date().toISOString()
+                });
+                
+                // Update UI
+                document.getElementById('user-balance').textContent = `Balance: ${newBalance} P`;
+                alert("+100 P added to your balance!");
+                
+            } catch (error) {
+                console.error("Claim error:", error);
+                alert("Failed to claim reward. Please try again.");
+            }
         });
     </script>
 </body>
