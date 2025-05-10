@@ -59,6 +59,9 @@
       try {
         console.log("Telegram user logged in:", user);
 
+        // Prevent page refresh
+        event.preventDefault();
+
         const userRef = db.collection("telegram_users").doc(String(user.id));
         const now = new Date().toLocaleString();
 
