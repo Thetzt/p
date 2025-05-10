@@ -48,7 +48,8 @@
       console.log(message);  // Also log to the browser console
     }
 
-    console.log("Initializing Firebase...");
+    // Log that script is running
+    debug("Initializing the script...");
 
     // Firebase config
     const firebaseConfig = {
@@ -68,13 +69,17 @@
 
     // Telegram login callback
     async function onTelegramAuth(user) {
+      debug("onTelegramAuth triggered...");
+
       try {
         // Log the Telegram user object to debug area
-        debug("Telegram user logged in:");
+        debug("Telegram user object:");
         debug(JSON.stringify(user, null, 2));  // Display user details
 
-        // Prevent page refresh if necessary
-        event.preventDefault();
+        // Prevent page refresh (important for single-page apps)
+        if (event) {
+          event.preventDefault();
+        }
 
         // Access Firestore to store/retrieve user data
         const userRef = db.collection("telegram_users").doc(String(user.id));
