@@ -8,7 +8,9 @@
     body { font-family: sans-serif; text-align: center; padding: 2rem; }
     #profile { display: none; margin-top: 2rem; }
     img { border-radius: 50%; width: 100px; height: 100px; }
-    #debug { margin-top: 2rem; padding: 1rem; background-color: #f4f4f4; border: 1px solid #ccc; white-space: pre-wrap; font-family: monospace; }
+    #debug, #status { margin-top: 2rem; padding: 1rem; background-color: #f4f4f4; border: 1px solid #ccc; white-space: pre-wrap; font-family: monospace; }
+    #status { background-color: #e0ffe0; color: green; }
+    #error { background-color: #ffe0e0; color: red; }
   </style>
 </head>
 <body>
@@ -31,6 +33,10 @@
     <p>Points: <span id="points">0</span></p>
   </div>
 
+  <!-- Status Messages -->
+  <div id="status"></div>
+  <div id="error"></div>
+
   <!-- Debugging Area -->
   <div id="debug"></div>
 
@@ -46,6 +52,18 @@
       const debugDiv = document.getElementById('debug');
       debugDiv.innerText += `${message}\n`; // Append message to debug area
       console.log(message);  // Also log to the browser console
+    }
+
+    // Function to display status messages
+    function showStatus(message) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.innerText = message; // Display success message
+    }
+
+    // Function to display error messages
+    function showError(message) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.innerText = message; // Display error message
     }
 
     // Log that script is running
@@ -74,6 +92,7 @@
 
     // Telegram login callback
     async function onTelegramAuth(user) {
+      showStatus("Telegram login in progress...");
       debug("onTelegramAuth triggered...");
 
       try {
@@ -113,6 +132,7 @@
           points: points
         });
 
+        showStatus("User saved to Firestore with updated points.");
         debug("User saved to Firestore with points:", points);
 
         // Show user profile on the page
@@ -123,6 +143,7 @@
         document.getElementById("profile").style.display = "block";
 
       } catch (error) {
+        showError("Login failed. Check console for details.");
         debug("Login failed:", error);
         alert("Error during login. Check console.");
       }
