@@ -3,10 +3,10 @@ const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
     rpcUrl: 'https://testnet-rpc.monad.xyz',
     chainId: 10143,
-    claimRate: 0.001, // MON per hour
-    claimInterval: 60 * 60 * 1000, // 1 hour in ms
-    minWithdraw: 0.01, // Minimum withdrawal amount
-    captchaDuration: 5 * 60 * 1000, // 5 minutes for captcha
+    claimRate: 0.001,
+    claimInterval: 60 * 60 * 1000,
+    minWithdraw: 0.01,
+    captchaDuration: 5 * 60 * 1000,
     explorerUrl: 'https://testnet.monadexplorer.com'
 };
 
@@ -14,10 +14,37 @@ const config = {
 let countdownInterval;
 let captchaVerified = false;
 let currentUser = null;
+let db;
+
+// Initialize Firebase
+async function initializeFirebase() {
+    try {
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+        const { getFirestore } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAfl8Ek4n51tsK3zE4lE59u82XGG0mQs8E",
+            authDomain: "monfaucet-b7eaf.firebaseapp.com",
+            projectId: "monfaucet-b7eaf",
+            storageBucket: "monfaucet-b7eaf.appspot.com",
+            messagingSenderId: "437754706834",
+            appId: "1:437754706834:web:6e590fc8443f68ef3d5f4b",
+            measurementId: "G-LNZ335DXGC"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        return true;
+    } catch (error) {
+        console.error("Firebase initialization failed:", error);
+        showOutput("Failed to connect to server. Please refresh.", "error", 5000);
+        return false;
+    }
+}
 
 // Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', async function() {
-    if (!document.getElementById('claimButton')) return;
+    if (!await initializeFirebase()) return;
     
     const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     if (!telegramUser) {
@@ -38,87 +65,93 @@ document.addEventListener('DOMContentLoaded', async function() {
         userAvatar.style.backgroundColor = '#0088cc';
     }
 
-    // Profile click handler
-    const profileBtn = document.getElementById('profileBtn');
-    const logoutPopup = document.getElementById('logoutPopup');
-    
-    profileBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        logoutPopup.style.display = logoutPopup.style.display === 'block' ? 'none' : 'block';
-    });
-
-    document.addEventListener('click', function() {
-        logoutPopup.style.display = 'none';
-    });
-
+    // Setup event listeners
+    document.getElementById('claimButton').addEventListener('click', startClaimProcess);
+    document.getElementById('withdrawButton').addEventListener('click', processWithdrawal);
     document.getElementById('logoutBtn').addEventListener('click', function() {
         localStorage.removeItem('telegramUser');
         window.location.href = 'index.html';
     });
 
-    // Initialize user data in Firebase
-    await initializeUserData(telegramUser.id);
-
-    setupEventListeners();
-    updateUI();
-    startCountdown();
+    // Initialize user data
+    try {
+        await initializeUserData(telegramUser.id);
+        await updateUI();
+        startCountdown();
+    } catch (error) {
+        console.error("Initialization error:", error);
+        showOutput("Failed to load data. Please refresh.", "error", 5000);
+    }
 });
 
 async function initializeUserData(userId) {
-    const { doc, setDoc, getDoc } = window.firebaseFunctions;
-    const db = window.firebaseDb;
-    
-    const userRef = doc(db, "users", userId);
-    const userSnap = await getDoc(userRef);
-    
-    if (!userSnap.exists()) {
-        await setDoc(userRef, {
-            balance: 0,
-            lastClaim: 0,
-            transactions: []
-        });
+    try {
+        const { doc, setDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+        const userRef = doc(db, "users", userId);
+        const userSnap = await getDoc(userRef);
+        
+        if (!userSnap.exists()) {
+            await setDoc(userRef, {
+                balance: 0,
+                lastClaim: 0,
+                transactions: []
+            });
+        }
+    } catch (error) {
+        console.error("Error initializing user data:", error);
+        throw error;
     }
 }
 
 async function getUserData() {
-    const { doc, getDoc } = window.firebaseFunctions;
-    const db = window.firebaseDb;
-    
-    const userRef = doc(db, "users", currentUser.id);
-    const userSnap = await getDoc(userRef);
-    return userSnap.exists() ? userSnap.data() : null;
+    try {
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+        const userRef = doc(db, "users", currentUser.id);
+        const userSnap = await getDoc(userRef);
+        return userSnap.exists() ? userSnap.data() : null;
+    } catch (error) {
+        console.error("Error getting user data:", error);
+        showOutput("Failed to load data", "error", 3000);
+        return null;
+    }
 }
 
 async function updateUserData(data) {
-    const { doc, updateDoc } = window.firebaseFunctions;
-    const db = window.firebaseDb;
-    
-    const userRef = doc(db, "users", currentUser.id);
-    await updateDoc(userRef, data);
+    try {
+        const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+        const userRef = doc(db, "users", currentUser.id);
+        await updateDoc(userRef, data);
+    } catch (error) {
+        console.error("Error updating user data:", error);
+        throw error;
+    }
 }
 
 async function addTransaction(txData) {
-    const { doc, updateDoc } = window.firebaseFunctions;
-    const db = window.firebaseDb;
-    
-    const userRef = doc(db, "users", currentUser.id);
-    const userData = await getUserData();
-    
-    await updateDoc(userRef, {
-        transactions: [...userData.transactions, txData]
-    });
-}
+    try {
+        const userData = await getUserData();
+        if (!userData) return;
 
-function setupEventListeners() {
-    document.getElementById('claimButton').addEventListener('click', startClaimProcess);
-    document.getElementById('withdrawButton').addEventListener('click', processWithdrawal);
-    document.getElementById('withdrawAddress').addEventListener('input', updateUI);
+        const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+        const userRef = doc(db, "users", currentUser.id);
+        
+        await updateDoc(userRef, {
+            transactions: [...userData.transactions, txData]
+        });
+    } catch (error) {
+        console.error("Error adding transaction:", error);
+        throw error;
+    }
 }
 
 async function updateUI() {
-    await updateBalanceDisplay();
-    await updateFaucetTimer();
-    await renderActivityFeed();
+    try {
+        await updateBalanceDisplay();
+        await updateFaucetTimer();
+        await renderActivityFeed();
+    } catch (error) {
+        console.error("UI update error:", error);
+    }
 }
 
 async function updateBalanceDisplay() {
@@ -137,17 +170,18 @@ async function startCountdown() {
     const now = Date.now();
     const timeSinceLastClaim = now - userData.lastClaim;
     
-    // If it's been more than claim interval, show empty timer
     if (timeSinceLastClaim >= config.claimInterval) {
         document.getElementById('faucetTimer').textContent = '';
         return;
     }
     
-    // Otherwise start countdown
     const timeLeft = config.claimInterval - timeSinceLastClaim;
     updateTimerDisplay(timeLeft);
     
-    countdownInterval = setInterval(() => {
+    countdownInterval = setInterval(async () => {
+        const userData = await getUserData();
+        if (!userData) return;
+        
         const remaining = userData.lastClaim + config.claimInterval - Date.now();
         
         if (remaining <= 0) {
@@ -170,87 +204,92 @@ function updateTimerDisplay(ms) {
 }
 
 async function startClaimProcess() {
-    const userData = await getUserData();
-    if (!userData) return;
-    
-    const now = Date.now();
-    const timeSinceLastClaim = now - userData.lastClaim;
-    
-    if (timeSinceLastClaim < config.claimInterval) {
-        showOutput(`Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`, 'error', 4000);
-        return;
-    }
-    
-    // Check if already verified
-    if (captchaVerified) {
-        await claimMON();
-        return;
-    }
-    
-    // Show reCAPTCHA
-    document.getElementById('faucetCaptcha').style.display = 'block';
-    grecaptcha.reset();
-    showOutput('Please complete robot verification first', 'info');
-}
-
-async function claimMON() {
     const claimBtn = document.getElementById('claimButton');
     claimBtn.disabled = true;
-    
-    showOutput('Claiming MON...', 'info');
+    claimBtn.textContent = 'Processing...';
     
     try {
         const userData = await getUserData();
+        if (!userData) return;
+        
+        const now = Date.now();
+        const timeSinceLastClaim = now - userData.lastClaim;
+        
+        if (timeSinceLastClaim < config.claimInterval) {
+            showOutput(`Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`, "error", 4000);
+            return;
+        }
+        
+        if (!captchaVerified) {
+            document.getElementById('faucetCaptcha').style.display = 'block';
+            grecaptcha.reset();
+            showOutput('Please complete robot verification first', 'info');
+            return;
+        }
+        
+        await claimMON();
+    } catch (error) {
+        console.error("Claim process error:", error);
+        showOutput("Failed to process claim", "error", 4000);
+    } finally {
+        claimBtn.disabled = false;
+        claimBtn.textContent = 'Claim MON';
+    }
+}
+
+async function claimMON() {
+    try {
+        const userData = await getUserData();
+        if (!userData) return;
+        
+        showOutput('Claiming MON...', 'info');
+        
+        const newBalance = userData.balance + config.claimRate;
         const now = Date.now();
         
-        // Update user data in Firebase
         await updateUserData({
-            balance: userData.balance + config.claimRate,
+            balance: newBalance,
             lastClaim: now
         });
         
-        // Record transaction
-        const txRecord = {
+        await addTransaction({
             type: 'claim',
             amount: config.claimRate,
             timestamp: new Date().toISOString()
-        };
-        
-        await addTransaction(txRecord);
+        });
         
         showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
-        updateUI();
+        await updateUI();
         startCountdown();
         captchaVerified = false;
     } catch (error) {
-        console.error('Claim error:', error);
-        showOutput('Failed to claim MON. Please try again.', 'error', 4000);
-    } finally {
-        claimBtn.disabled = false;
+        console.error("Claim error:", error);
+        throw error;
     }
 }
 
 async function processWithdrawal() {
-    const address = document.getElementById('withdrawAddress').value.trim();
-    
-    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-        showOutput('Invalid MON address format', 'error', 4000);
-        return;
-    }
-    
-    const userData = await getUserData();
-    if (!userData) return;
-    
-    if (userData.balance < config.minWithdraw) {
-        showOutput(`Minimum withdrawal is ${config.minWithdraw} MON`, 'error', 4000);
-        return;
-    }
-    
     const withdrawBtn = document.getElementById('withdrawButton');
     withdrawBtn.disabled = true;
-    showOutput('Processing withdrawal...', 'info');
-
+    withdrawBtn.textContent = 'Processing...';
+    
     try {
+        const address = document.getElementById('withdrawAddress').value.trim();
+        if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+            showOutput('Invalid MON address format', 'error', 4000);
+            return;
+        }
+        
+        const userData = await getUserData();
+        if (!userData) return;
+        
+        if (userData.balance < config.minWithdraw) {
+            showOutput(`Minimum withdrawal is ${config.minWithdraw} MON`, 'error', 4000);
+            return;
+        }
+        
+        showOutput('Processing withdrawal...', 'info');
+        
         const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
             chainId: config.chainId,
             name: 'monad-testnet'
@@ -268,27 +307,22 @@ async function processWithdrawal() {
             value: ethers.utils.parseEther(userData.balance.toString())
         });
         
-        // Record transaction
-        const txRecord = {
+        await addTransaction({
             type: 'withdraw',
             hash: tx.hash,
             to: address,
             amount: userData.balance,
             timestamp: new Date().toISOString()
-        };
+        });
         
-        await addTransaction(txRecord);
-        
-        // Update balance
         await updateUserData({
             balance: 0
         });
         
-        updateUI();
         showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
-        
+        await updateUI();
     } catch (error) {
-        console.error('Withdrawal error:', error);
+        console.error("Withdrawal error:", error);
         let errorMsg = 'Withdrawal failed. Please try again.';
         
         if (error.message.includes('insufficient funds')) {
@@ -300,6 +334,7 @@ async function processWithdrawal() {
         showOutput(errorMsg, 'error', 4000);
     } finally {
         withdrawBtn.disabled = false;
+        withdrawBtn.textContent = 'Withdraw';
     }
 }
 
@@ -309,7 +344,6 @@ function onCaptchaSuccess(token) {
     captchaVerified = true;
     showOutput('Verification successful! Click Claim MON again to receive your MON', 'success', 4000);
     
-    // Auto-expire after 5 minutes
     setTimeout(() => {
         if (captchaVerified) {
             captchaVerified = false;
@@ -373,6 +407,7 @@ async function renderActivityFeed() {
 }
 
 function showOutput(message, type, duration = 4000) {
+    console.log(`[${type}] ${message}`);
     const outputData = document.getElementById('outputData');
     outputData.textContent = message;
     outputData.className = 'output-data';
