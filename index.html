@@ -74,7 +74,7 @@
         // Show user profile
         document.getElementById("name").innerText = `Hello, ${user.first_name}`;
         document.getElementById("time").innerText = `Login Time: ${now}`;
-        document.getElementById("photo").src = user.photo_url;
+        document.getElementById("photo").src = user.photo_url || 'default-avatar.png'; // fallback image
         document.getElementById("profile").style.display = "block";
       } catch (error) {
         console.error("Login failed:", error);
