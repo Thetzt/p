@@ -8,6 +8,7 @@
     body { font-family: sans-serif; text-align: center; padding: 2rem; }
     #profile { display: none; margin-top: 2rem; }
     img { border-radius: 50%; width: 100px; height: 100px; }
+    #debug { margin-top: 2rem; padding: 1rem; background-color: #f4f4f4; border: 1px solid #ccc; white-space: pre-wrap; font-family: monospace; }
   </style>
 </head>
 <body>
@@ -30,6 +31,9 @@
     <p>Points: <span id="points">0</span></p>
   </div>
 
+  <!-- Debugging Area -->
+  <div id="debug"></div>
+
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js"></script>
@@ -38,6 +42,13 @@
   <!-- Firebase + Telegram Auth Script -->
   <script>
     console.log("Loading Firebase...");
+
+    // Function to add debug messages to the webpage
+    function debug(message) {
+      const debugDiv = document.getElementById('debug');
+      debugDiv.innerText += `${message}\n`;
+      console.log(message);  // Also log to the console
+    }
 
     // Firebase config
     const firebaseConfig = {
@@ -57,7 +68,8 @@
     // Telegram login callback
     async function onTelegramAuth(user) {
       try {
-        console.log("Telegram user logged in:", user);
+        debug("Telegram user logged in:");
+        debug(JSON.stringify(user, null, 2));  // Log the entire user object
 
         // Prevent page refresh
         event.preventDefault();
@@ -70,12 +82,13 @@
         let points = 0;
 
         if (userDoc.exists) {
-          // If user exists, retrieve current points
+          debug("User found in Firestore. Retrieving points...");
           points = userDoc.data().points || 0;
         }
 
         // Add 100 points
         points += 100;
+        debug(`Adding 100 points. New total: ${points}`);
 
         // Save user data to Firestore with updated points
         await userRef.set({
@@ -87,7 +100,7 @@
           points: points
         });
 
-        console.log("User saved to Firestore with points:", points);
+        debug("User saved to Firestore with points:", points);
 
         // Show user profile
         document.getElementById("name").innerText = `Hello, ${user.first_name}`;
@@ -97,12 +110,12 @@
         document.getElementById("profile").style.display = "block";
 
       } catch (error) {
-        console.error("Login failed:", error);
+        debug("Login failed:", error);
         alert("Error during login. Check console.");
       }
     }
 
-    console.log("Telegram widget loaded.");
+    debug("Telegram widget loaded.");
   </script>
 </body>
 </html>
