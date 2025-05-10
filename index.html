@@ -3,11 +3,6 @@
 <head>
     <title>Telegram Login | MON Faucet</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script async src="https://telegram.org/js/telegram-widget.js?19" 
-            data-telegram-login="uxxucc_bot" 
-            data-size="large" 
-            data-onauth="onTelegramAuth(user)" 
-            data-request-access="write"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -51,6 +46,10 @@
             background: rgba(244, 67, 54, 0.2);
             color: #f44336;
         }
+        #telegram-login-button {
+            margin: 20px auto;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -58,16 +57,54 @@
         <h1>MON Faucet</h1>
         <p>Login with Telegram to continue</p>
         
-        <!-- Telegram Login Button -->
-        <div id="telegram-login"></div>
+        <!-- Telegram Login Button Container -->
+        <div id="telegram-login-button"></div>
         
         <!-- Status Message -->
         <div id="status"></div>
     </div>
 
-    <!-- Firebase and App Scripts -->
+    <!-- Telegram Widget Script -->
+    <script>
+        // Load Telegram widget script dynamically
+        function loadTelegramWidget() {
+            const script = document.createElement('script');
+            script.src = 'https://telegram.org/js/telegram-widget.js?19';
+            script.async = true;
+            script.onload = initTelegramLogin;
+            document.head.appendChild(script);
+        }
+
+        // Initialize Telegram Login Widget
+        function initTelegramLogin() {
+            window.Telegram.Login.auth({
+                bot_id: 'uxxucc_bot', // Your actual bot username
+                request_access: true,
+                lang: 'en',
+                onAuth: function(user) {
+                    if (user) {
+                        console.log("Authenticated user:", user);
+                        saveTelegramUser(user);
+                    } else {
+                        showStatus("Authentication failed. Please try again.", "error");
+                    }
+                }
+            }, document.getElementById('telegram-login-button'));
+        }
+
+        // Show status messages
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = type;
+        }
+
+        // Load the widget when page loads
+        window.onload = loadTelegramWidget;
+    </script>
+
+    <!-- Firebase Integration -->
     <script type="module">
-        // Initialize Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -84,12 +121,11 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Function to save user data to Firebase
+        // Make this function available globally
         window.saveTelegramUser = async function(user) {
-            const statusEl = document.getElementById('status');
+            showStatus("Processing login...", "");
             
             try {
-                // Save user data to Firestore
                 await setDoc(doc(db, "users", user.id.toString()), {
                     id: user.id,
                     first_name: user.first_name,
@@ -102,35 +138,18 @@
                     created_at: new Date().toISOString()
                 });
 
-                // Store user in localStorage and redirect
                 localStorage.setItem('telegramUser', JSON.stringify(user));
-                statusEl.textContent = "Login successful! Redirecting...";
-                statusEl.className = "success";
+                showStatus("Login successful! Redirecting...", "success");
                 
-                // Redirect after short delay
                 setTimeout(() => {
                     window.location.href = 'claim.html';
                 }, 1500);
                 
             } catch (error) {
-                console.error("Error saving user data:", error);
-                statusEl.textContent = "Error saving your data. Please try again.";
-                statusEl.className = "error";
+                console.error("Firebase error:", error);
+                showStatus("Error saving your data. Please try again.", "error");
             }
         };
-    </script>
-
-    <!-- Telegram Auth Handler -->
-    <script>
-        function onTelegramAuth(user) {
-            if (user) {
-                console.log("Telegram user authenticated:", user);
-                window.saveTelegramUser(user);
-            } else {
-                document.getElementById('status').textContent = "Authentication failed. Please try again.";
-                document.getElementById('status').className = "error";
-            }
-        }
     </script>
 </body>
 </html>
