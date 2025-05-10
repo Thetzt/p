@@ -1,25 +1,3 @@
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
-  authDomain: "claimpx.firebaseapp.com",
-  projectId: "claimpx",
-  storageBucket: "claimpx.firebasestorage.app",
-  messagingSenderId: "1012471480360",
-  appId: "1:1012471480360:web:3b16bc6acc6adcf371b51d",
-  measurementId: "G-NYK5SSMCF3"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-
-// Global state
-let countdownInterval;
-let captchaVerified = false;
-let currentUser = null;
-let userData = null;
-let userTransactions = [];
-
 // Configuration
 const config = {
     privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
@@ -31,6 +9,11 @@ const config = {
     captchaDuration: 5 * 60 * 1000, // 5 minutes for captcha
     explorerUrl: 'https://testnet.monadexplorer.com'
 };
+
+// Global state
+let countdownInterval;
+let captchaVerified = false;
+let currentUser = null;
 
 // Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', async function() {
@@ -73,40 +56,56 @@ document.addEventListener('DOMContentLoaded', async function() {
         window.location.href = 'index.html';
     });
 
-    // Load user data from Firebase
-    await loadUserData();
+    // Initialize user data in Firebase
+    await initializeUserData(telegramUser.id);
+
     setupEventListeners();
     updateUI();
     startCountdown();
 });
 
-async function loadUserData() {
-    const userRef = database.ref('users/' + currentUser.id);
+async function initializeUserData(userId) {
+    const { doc, setDoc, getDoc } = window.firebaseFunctions;
+    const db = window.firebaseDb;
     
-    return new Promise((resolve) => {
-        userRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                userData = data;
-                if (!userData.balance) userData.balance = 0;
-                if (!userData.lastClaim) userData.lastClaim = 0;
-            } else {
-                // Initialize new user
-                userData = {
-                    balance: 0,
-                    lastClaim: 0
-                };
-                userRef.set(userData);
-            }
-            
-            // Load transactions
-            const txRef = database.ref('transactions/' + currentUser.id);
-            txRef.on('value', (txSnapshot) => {
-                const txData = txSnapshot.val();
-                userTransactions = txData ? Object.values(txData) : [];
-                resolve();
-            });
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+        await setDoc(userRef, {
+            balance: 0,
+            lastClaim: 0,
+            transactions: []
         });
+    }
+}
+
+async function getUserData() {
+    const { doc, getDoc } = window.firebaseFunctions;
+    const db = window.firebaseDb;
+    
+    const userRef = doc(db, "users", currentUser.id);
+    const userSnap = await getDoc(userRef);
+    return userSnap.exists() ? userSnap.data() : null;
+}
+
+async function updateUserData(data) {
+    const { doc, updateDoc } = window.firebaseFunctions;
+    const db = window.firebaseDb;
+    
+    const userRef = doc(db, "users", currentUser.id);
+    await updateDoc(userRef, data);
+}
+
+async function addTransaction(txData) {
+    const { doc, updateDoc } = window.firebaseFunctions;
+    const db = window.firebaseDb;
+    
+    const userRef = doc(db, "users", currentUser.id);
+    const userData = await getUserData();
+    
+    await updateDoc(userRef, {
+        transactions: [...userData.transactions, txData]
     });
 }
 
@@ -116,20 +115,23 @@ function setupEventListeners() {
     document.getElementById('withdrawAddress').addEventListener('input', updateUI);
 }
 
-function updateUI() {
-    updateBalanceDisplay();
-    updateFaucetTimer();
-    renderActivityFeed();
+async function updateUI() {
+    await updateBalanceDisplay();
+    await updateFaucetTimer();
+    await renderActivityFeed();
 }
 
-function updateBalanceDisplay() {
+async function updateBalanceDisplay() {
+    const userData = await getUserData();
     if (!userData) return;
+    
     document.getElementById('userBalance').textContent = userData.balance.toFixed(4) + ' MON';
 }
 
-function startCountdown() {
+async function startCountdown() {
     clearInterval(countdownInterval);
     
+    const userData = await getUserData();
     if (!userData) return;
     
     const now = Date.now();
@@ -167,7 +169,8 @@ function updateTimerDisplay(ms) {
         `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function startClaimProcess() {
+async function startClaimProcess() {
+    const userData = await getUserData();
     if (!userData) return;
     
     const now = Date.now();
@@ -180,7 +183,7 @@ function startClaimProcess() {
     
     // Check if already verified
     if (captchaVerified) {
-        claimMON();
+        await claimMON();
         return;
     }
     
@@ -191,40 +194,29 @@ function startClaimProcess() {
 }
 
 async function claimMON() {
-    if (!userData || !currentUser) return;
-    
     const claimBtn = document.getElementById('claimButton');
     claimBtn.disabled = true;
     
     showOutput('Claiming MON...', 'info');
     
     try {
-        // Update user data in Firebase
-        const updates = {};
-        const newBalance = userData.balance + config.claimRate;
+        const userData = await getUserData();
         const now = Date.now();
         
-        updates['users/' + currentUser.id + '/balance'] = newBalance;
-        updates['users/' + currentUser.id + '/lastClaim'] = now;
+        // Update user data in Firebase
+        await updateUserData({
+            balance: userData.balance + config.claimRate,
+            lastClaim: now
+        });
         
-        // Create transaction record
-        const txId = database.ref('transactions/' + currentUser.id).push().key;
+        // Record transaction
         const txRecord = {
             type: 'claim',
             amount: config.claimRate,
-            timestamp: now,
-            telegramId: currentUser.id
+            timestamp: new Date().toISOString()
         };
         
-        updates['transactions/' + currentUser.id + '/' + txId] = txRecord;
-        
-        // Update all data in one transaction
-        await database.ref().update(updates);
-        
-        // Update local state
-        userData.balance = newBalance;
-        userData.lastClaim = now;
-        userTransactions.push(txRecord);
+        await addTransaction(txRecord);
         
         showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
         updateUI();
@@ -241,17 +233,15 @@ async function claimMON() {
 async function processWithdrawal() {
     const address = document.getElementById('withdrawAddress').value.trim();
     
-    if (!currentUser) {
-        showOutput('Please login with Telegram first', 'error', 4000);
-        return;
-    }
-    
     if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
         showOutput('Invalid MON address format', 'error', 4000);
         return;
     }
     
-    if (!userData || userData.balance < config.minWithdraw) {
+    const userData = await getUserData();
+    if (!userData) return;
+    
+    if (userData.balance < config.minWithdraw) {
         showOutput(`Minimum withdrawal is ${config.minWithdraw} MON`, 'error', 4000);
         return;
     }
@@ -278,26 +268,21 @@ async function processWithdrawal() {
             value: ethers.utils.parseEther(userData.balance.toString())
         });
         
-        // Update Firebase data
-        const updates = {};
-        const txId = database.ref('transactions/' + currentUser.id).push().key;
+        // Record transaction
         const txRecord = {
             type: 'withdraw',
             hash: tx.hash,
             to: address,
             amount: userData.balance,
-            timestamp: Date.now(),
-            telegramId: currentUser.id
+            timestamp: new Date().toISOString()
         };
         
-        updates['users/' + currentUser.id + '/balance'] = 0;
-        updates['transactions/' + currentUser.id + '/' + txId] = txRecord;
+        await addTransaction(txRecord);
         
-        await database.ref().update(updates);
-        
-        // Update local state
-        userData.balance = 0;
-        userTransactions.push(txRecord);
+        // Update balance
+        await updateUserData({
+            balance: 0
+        });
         
         updateUI();
         showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
@@ -338,19 +323,21 @@ function onCaptchaExpired() {
     showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
 }
 
-function renderActivityFeed() {
+async function renderActivityFeed() {
     const activityFeed = document.getElementById('activityFeed');
     activityFeed.innerHTML = '';
     
-    if (!currentUser) return;
+    const userData = await getUserData();
+    if (!userData || !userData.transactions) return;
     
-    if (userTransactions.length === 0) {
+    if (userData.transactions.length === 0) {
         activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No faucet activity yet</p>';
         return;
     }
     
-    // Sort transactions by timestamp (newest first)
-    const sortedTx = [...userTransactions].sort((a, b) => b.timestamp - a.timestamp);
+    const sortedTx = [...userData.transactions].sort((a, b) => 
+        new Date(b.timestamp) - new Date(a.timestamp)
+    );
     
     sortedTx.forEach(tx => {
         const date = new Date(tx.timestamp);
