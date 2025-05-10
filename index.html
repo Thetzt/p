@@ -67,6 +67,11 @@
     const db = firebase.firestore();
     firebase.analytics();
 
+    // Log when Telegram widget is loaded
+    window.onload = function() {
+      debug("Telegram widget script has loaded.");
+    }
+
     // Telegram login callback
     async function onTelegramAuth(user) {
       debug("onTelegramAuth triggered...");
