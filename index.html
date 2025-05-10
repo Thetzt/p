@@ -27,6 +27,7 @@
     <h3 id="name"></h3>
     <p id="time"></p>
     <img id="photo" alt="Profile Photo">
+    <p>Points: <span id="points">0</span></p>
   </div>
 
   <!-- Firebase SDKs -->
@@ -61,21 +62,37 @@
         const userRef = db.collection("telegram_users").doc(String(user.id));
         const now = new Date().toLocaleString();
 
+        // Fetch current user data if exists
+        const userDoc = await userRef.get();
+        let points = 0;
+
+        if (userDoc.exists) {
+          // If user exists, retrieve current points
+          points = userDoc.data().points || 0;
+        }
+
+        // Add 100 points
+        points += 100;
+
+        // Save user data to Firestore with updated points
         await userRef.set({
           id: user.id,
           first_name: user.first_name,
           username: user.username || null,
           photo_url: user.photo_url || null,
-          login_time: firebase.firestore.FieldValue.serverTimestamp()
+          login_time: firebase.firestore.FieldValue.serverTimestamp(),
+          points: points
         });
 
-        console.log("Saved to Firestore");
+        console.log("User saved to Firestore with points:", points);
 
         // Show user profile
         document.getElementById("name").innerText = `Hello, ${user.first_name}`;
         document.getElementById("time").innerText = `Login Time: ${now}`;
         document.getElementById("photo").src = user.photo_url || 'default-avatar.png'; // fallback image
+        document.getElementById("points").innerText = points;
         document.getElementById("profile").style.display = "block";
+
       } catch (error) {
         console.error("Login failed:", error);
         alert("Error during login. Check console.");
