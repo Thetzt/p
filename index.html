@@ -41,14 +41,14 @@
 
   <!-- Firebase + Telegram Auth Script -->
   <script>
-    console.log("Loading Firebase...");
-
-    // Function to add debug messages to the webpage
+    // Function to add debug messages to the webpage and console
     function debug(message) {
       const debugDiv = document.getElementById('debug');
-      debugDiv.innerText += `${message}\n`;
-      console.log(message);  // Also log to the console
+      debugDiv.innerText += `${message}\n`; // Append message to debug area
+      console.log(message);  // Also log to the browser console
     }
+
+    console.log("Initializing Firebase...");
 
     // Firebase config
     const firebaseConfig = {
@@ -61,6 +61,7 @@
       measurementId: "G-NYK5SSMCF3"
     };
 
+    // Initialize Firebase
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     firebase.analytics();
@@ -68,12 +69,14 @@
     // Telegram login callback
     async function onTelegramAuth(user) {
       try {
+        // Log the Telegram user object to debug area
         debug("Telegram user logged in:");
-        debug(JSON.stringify(user, null, 2));  // Log the entire user object
+        debug(JSON.stringify(user, null, 2));  // Display user details
 
-        // Prevent page refresh
+        // Prevent page refresh if necessary
         event.preventDefault();
 
+        // Access Firestore to store/retrieve user data
         const userRef = db.collection("telegram_users").doc(String(user.id));
         const now = new Date().toLocaleString();
 
@@ -102,10 +105,10 @@
 
         debug("User saved to Firestore with points:", points);
 
-        // Show user profile
+        // Show user profile on the page
         document.getElementById("name").innerText = `Hello, ${user.first_name}`;
         document.getElementById("time").innerText = `Login Time: ${now}`;
-        document.getElementById("photo").src = user.photo_url || 'default-avatar.png'; // fallback image
+        document.getElementById("photo").src = user.photo_url || 'default-avatar.png';  // Fallback image if no photo
         document.getElementById("points").innerText = points;
         document.getElementById("profile").style.display = "block";
 
@@ -115,7 +118,7 @@
       }
     }
 
-    debug("Telegram widget loaded.");
+    debug("Firebase and Telegram widget initialized.");
   </script>
 </body>
 </html>
