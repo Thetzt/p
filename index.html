@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <title>ClaimPX Telegram Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2rem; }
+    #profile { display: none; margin-top: 2rem; }
+    img { border-radius: 50%; width: 100px; height: 100px; }
+  </style>
 </head>
 <body>
   <h2>Login with Telegram</h2>
@@ -17,12 +22,20 @@
           data-on-auth="onTelegramAuth">
   </script>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-analytics.js";
+  <!-- Show User Profile Info -->
+  <div id="profile">
+    <h3 id="name"></h3>
+    <p id="time"></p>
+    <img id="photo" alt="Profile Photo">
+  </div>
 
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.7.1/firebase-analytics.js"></script>
+
+  <!-- Firebase and Telegram Login Script -->
+  <script>
     // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
@@ -34,24 +47,31 @@
       measurementId: "G-NYK5SSMCF3"
     };
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const analytics = getAnalytics(app);
+    // Init Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    firebase.analytics();
 
-    // Telegram login callback (must be global!)
-    window.onTelegramAuth = async function(user) {
-      const userRef = doc(db, "telegram_users", String(user.id));
-      await setDoc(userRef, {
+    // Telegram login callback
+    async function onTelegramAuth(user) {
+      const userRef = db.collection("telegram_users").doc(String(user.id));
+      const now = new Date().toLocaleString();
+
+      // Save to Firebase
+      await userRef.set({
         id: user.id,
         first_name: user.first_name,
         username: user.username || null,
         photo_url: user.photo_url || null,
-        timestamp: serverTimestamp()
+        login_time: firebase.firestore.FieldValue.serverTimestamp()
       });
 
-      alert(`Welcome, ${user.first_name}! Your login was saved.`);
-    };
+      // Display user info
+      document.getElementById("name").innerText = `Hello, ${user.first_name}`;
+      document.getElementById("time").innerText = `Login Time: ${now}`;
+      document.getElementById("photo").src = user.photo_url;
+      document.getElementById("profile").style.display = "block";
+    }
   </script>
 </body>
 </html>
