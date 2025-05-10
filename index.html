@@ -1,155 +1,178 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>ClaimPX Telegram Login</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: sans-serif; text-align: center; padding: 2rem; }
-    #profile { display: none; margin-top: 2rem; }
-    img { border-radius: 50%; width: 100px; height: 100px; }
-    #debug, #status { margin-top: 2rem; padding: 1rem; background-color: #f4f4f4; border: 1px solid #ccc; white-space: pre-wrap; font-family: monospace; }
-    #status { background-color: #e0ffe0; color: green; }
-    #error { background-color: #ffe0e0; color: red; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Login with Firebase</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #telegram-login {
+            margin: 20px 0;
+        }
+        #user-data {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-  <h2>Login with Telegram</h2>
+    <h1>Telegram Login</h1>
+    
+    <!-- Telegram Login Widget -->
+    <div id="telegram-login"></div>
+    
+    <!-- User Data Display -->
+    <div id="user-data">
+        <h2>Welcome, <span id="username"></span>!</h2>
+        <p>Telegram ID: <span id="user-id"></span></p>
+        <p>Balance: <span id="balance"></span></p>
+        <button id="logout-btn">Logout</button>
+    </div>
 
-  <!-- Telegram Login Widget -->
-  <script async src="https://telegram.org/js/telegram-widget.js?7"
-          data-telegram-login="uxxucc_bot"
-          data-size="large"
-          data-userpic="true"
-          data-request-access="write"
-          data-on-auth="onTelegramAuth">
-  </script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInWithCustomToken,
+            signOut 
+        } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc,
+            getDoc
+        } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
-  <!-- Show User Profile Info -->
-  <div id="profile">
-    <h3 id="name"></h3>
-    <p id="time"></p>
-    <img id="photo" alt="Profile Photo">
-    <p>Points: <span id="points">0</span></p>
-  </div>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
+            authDomain: "claimpx.firebaseapp.com",
+            projectId: "claimpx",
+            storageBucket: "claimpx.appspot.com",
+            messagingSenderId: "1012471480360",
+            appId: "1:1012471480360:web:3b16bc6acc6adcf371b51d",
+            measurementId: "G-NYK5SSMCF3"
+        };
 
-  <!-- Status Messages -->
-  <div id="status"></div>
-  <div id="error"></div>
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-  <!-- Debugging Area -->
-  <div id="debug"></div>
+        // Telegram Bot username
+        const botUsername = "uxxucc_bot";
 
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.7.1/firebase-analytics.js"></script>
-
-  <!-- Firebase + Telegram Auth Script -->
-  <script>
-    // Function to add debug messages to the webpage and console
-    function debug(message) {
-      const debugDiv = document.getElementById('debug');
-      debugDiv.innerText += `${message}\n`; // Append message to debug area
-      console.log(message);  // Also log to the browser console
-    }
-
-    // Function to display status messages
-    function showStatus(message) {
-      const statusDiv = document.getElementById('status');
-      statusDiv.innerText = message; // Display success message
-    }
-
-    // Function to display error messages
-    function showError(message) {
-      const errorDiv = document.getElementById('error');
-      errorDiv.innerText = message; // Display error message
-    }
-
-    // Log that script is running
-    debug("Initializing the script...");
-
-    // Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
-      authDomain: "claimpx.firebaseapp.com",
-      projectId: "claimpx",
-      storageBucket: "claimpx.firebasestorage.app",
-      messagingSenderId: "1012471480360",
-      appId: "1:1012471480360:web:3b16bc6acc6adcf371b51d",
-      measurementId: "G-NYK5SSMCF3"
-    };
-
-    // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    firebase.analytics();
-
-    // Log when Telegram widget is loaded
-    window.onload = function() {
-      debug("Telegram widget script has loaded.");
-    }
-
-    // Telegram login callback
-    async function onTelegramAuth(user) {
-      showStatus("Telegram login in progress...");
-      debug("onTelegramAuth triggered...");
-
-      try {
-        // Log the Telegram user object to debug area
-        debug("Telegram user object:");
-        debug(JSON.stringify(user, null, 2));  // Display user details
-
-        // Prevent page refresh (important for single-page apps)
-        if (event) {
-          event.preventDefault();
+        // Load Telegram script
+        function loadTelegramScript() {
+            const script = document.createElement('script');
+            script.src = "https://telegram.org/js/telegram-widget.js?22";
+            script.setAttribute('data-telegram-login', botUsername);
+            script.setAttribute('data-size', "large");
+            script.setAttribute('data-onauth', "onTelegramAuth(user)");
+            script.setAttribute('data-request-access', "write");
+            document.getElementById('telegram-login').appendChild(script);
         }
 
-        // Access Firestore to store/retrieve user data
-        const userRef = db.collection("telegram_users").doc(String(user.id));
-        const now = new Date().toLocaleString();
+        // Handle Telegram auth callback
+        window.onTelegramAuth = async (userData) => {
+            try {
+                // Verify Telegram data with your backend
+                const response = await fetch('YOUR_BACKEND_ENDPOINT', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                const { token } = await response.json();
+                
+                // Sign in to Firebase with custom token
+                const userCredential = await signInWithCustomToken(auth, token);
+                const user = userCredential.user;
+                
+                // Save/update user data in Firestore
+                await saveUserData(user.uid, userData);
+                
+                // Display user data
+                displayUserData(user.uid, userData);
+                
+            } catch (error) {
+                console.error("Authentication error:", error);
+                alert("Login failed. Please try again.");
+            }
+        };
 
-        // Fetch current user data if exists
-        const userDoc = await userRef.get();
-        let points = 0;
-
-        if (userDoc.exists) {
-          debug("User found in Firestore. Retrieving points...");
-          points = userDoc.data().points || 0;
+        // Save user data to Firestore
+        async function saveUserData(uid, telegramData) {
+            const userRef = doc(db, "users", uid);
+            
+            await setDoc(userRef, {
+                telegramId: telegramData.id,
+                username: telegramData.username || telegramData.first_name,
+                firstName: telegramData.first_name,
+                lastName: telegramData.last_name || "",
+                photoUrl: telegramData.photo_url || "",
+                authDate: new Date(telegramData.auth_date * 1000),
+                lastLogin: new Date(),
+                balance: 0 // Initial balance
+            }, { merge: true });
         }
 
-        // Add 100 points
-        points += 100;
-        debug(`Adding 100 points. New total: ${points}`);
+        // Display user data
+        async function displayUserData(uid, telegramData) {
+            const userDoc = await getDoc(doc(db, "users", uid));
+            
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                document.getElementById('username').textContent = userData.username;
+                document.getElementById('user-id').textContent = telegramData.id;
+                document.getElementById('balance').textContent = userData.balance;
+                document.getElementById('user-data').style.display = 'block';
+            }
+        }
 
-        // Save user data to Firestore with updated points
-        await userRef.set({
-          id: user.id,
-          first_name: user.first_name,
-          username: user.username || null,
-          photo_url: user.photo_url || null,
-          login_time: firebase.firestore.FieldValue.serverTimestamp(),
-          points: points
+        // Logout
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                document.getElementById('user-data').style.display = 'none';
+                alert("Logged out successfully");
+            } catch (error) {
+                console.error("Logout error:", error);
+            }
         });
 
-        showStatus("User saved to Firestore with updated points.");
-        debug("User saved to Firestore with points:", points);
+        // Check auth state
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // User is signed in
+                console.log("User is logged in:", user.uid);
+            } else {
+                // User is signed out
+                console.log("User is logged out");
+            }
+        });
 
-        // Show user profile on the page
-        document.getElementById("name").innerText = `Hello, ${user.first_name}`;
-        document.getElementById("time").innerText = `Login Time: ${now}`;
-        document.getElementById("photo").src = user.photo_url || 'default-avatar.png';  // Fallback image if no photo
-        document.getElementById("points").innerText = points;
-        document.getElementById("profile").style.display = "block";
-
-      } catch (error) {
-        showError("Login failed. Check console for details.");
-        debug("Login failed:", error);
-        alert("Error during login. Check console.");
-      }
-    }
-
-    debug("Firebase and Telegram widget initialized.");
-  </script>
+        // Load Telegram widget when page loads
+        window.addEventListener('DOMContentLoaded', loadTelegramScript);
+    </script>
 </body>
 </html>
