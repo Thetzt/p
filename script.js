@@ -15,12 +15,20 @@ let countdownInterval;
 let captchaVerified = false;
 let currentUser = null;
 let db;
+let firebaseInitialized = false;
+
+// Debugging function
+function debugLog(message, data = null) {
+    console.log(`[DEBUG] ${message}`, data || '');
+}
 
 // Initialize Firebase
 async function initializeFirebase() {
     try {
+        debugLog("Initializing Firebase...");
+        
         const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
-        const { getFirestore } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+        const { getFirestore, enableIndexedDbPersistence } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
 
         const firebaseConfig = {
             apiKey: "AIzaSyAfl8Ek4n51tsK3zE4lE59u82XGG0mQs8E",
@@ -34,9 +42,20 @@ async function initializeFirebase() {
 
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
+        
+        // Enable offline persistence
+        try {
+            await enableIndexedDbPersistence(db);
+            debugLog("Firebase offline persistence enabled");
+        } catch (err) {
+            debugLog("Firebase offline persistence error:", err);
+        }
+        
+        firebaseInitialized = true;
+        debugLog("Firebase initialized successfully");
         return true;
     } catch (error) {
-        console.error("Firebase initialization failed:", error);
+        debugLog("Firebase initialization failed:", error);
         showOutput("Failed to connect to server. Please refresh.", "error", 5000);
         return false;
     }
@@ -44,73 +63,110 @@ async function initializeFirebase() {
 
 // Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', async function() {
-    if (!await initializeFirebase()) return;
+    debugLog("DOM content loaded");
     
+    if (!await initializeFirebase()) {
+        debugLog("Initialization failed - stopping execution");
+        return;
+    }
+
     const telegramUser = JSON.parse(localStorage.getItem('telegramUser'));
     if (!telegramUser) {
+        debugLog("No Telegram user found - redirecting to login");
         window.location.href = 'index.html';
         return;
     }
 
     currentUser = telegramUser;
+    debugLog("User authenticated:", {id: telegramUser.id, username: telegramUser.username});
 
     // Profile setup
     const userAvatar = document.getElementById('userAvatar');
     if (telegramUser.photo_url) {
         userAvatar.src = telegramUser.photo_url;
+        debugLog("Set user avatar from photo_url");
     } else {
         userAvatar.src = 'https://telegram.org/img/t_logo.png';
         userAvatar.style.objectFit = 'contain';
         userAvatar.style.padding = '8px';
         userAvatar.style.backgroundColor = '#0088cc';
+        debugLog("Set default Telegram avatar");
     }
 
     // Setup event listeners
     document.getElementById('claimButton').addEventListener('click', startClaimProcess);
     document.getElementById('withdrawButton').addEventListener('click', processWithdrawal);
     document.getElementById('logoutBtn').addEventListener('click', function() {
+        debugLog("User logged out");
         localStorage.removeItem('telegramUser');
         window.location.href = 'index.html';
     });
 
     // Initialize user data
     try {
+        debugLog("Initializing user data...");
         await initializeUserData(telegramUser.id);
+        debugLog("User data initialized");
+        
+        debugLog("Updating UI...");
         await updateUI();
+        debugLog("UI updated");
+        
+        debugLog("Starting countdown...");
         startCountdown();
+        debugLog("Countdown started");
     } catch (error) {
-        console.error("Initialization error:", error);
+        debugLog("Initialization error:", error);
         showOutput("Failed to load data. Please refresh.", "error", 5000);
     }
 });
 
 async function initializeUserData(userId) {
     try {
+        debugLog(`Initializing data for user ${userId}`);
         const { doc, setDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
         const userRef = doc(db, "users", userId);
         const userSnap = await getDoc(userRef);
         
         if (!userSnap.exists()) {
+            debugLog("Creating new user document");
             await setDoc(userRef, {
                 balance: 0,
                 lastClaim: 0,
-                transactions: []
+                transactions: [],
+                createdAt: new Date().toISOString(),
+                lastUpdated: new Date().toISOString()
             });
+            debugLog("New user document created");
+        } else {
+            debugLog("Existing user document found");
         }
     } catch (error) {
-        console.error("Error initializing user data:", error);
+        debugLog("Error initializing user data:", error);
         throw error;
     }
 }
 
 async function getUserData() {
     try {
+        debugLog("Getting user data...");
+        if (!firebaseInitialized) {
+            throw new Error("Firebase not initialized");
+        }
+        
         const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
         const userRef = doc(db, "users", currentUser.id);
         const userSnap = await getDoc(userRef);
-        return userSnap.exists() ? userSnap.data() : null;
+        
+        if (!userSnap.exists()) {
+            debugLog("User document doesn't exist");
+            return null;
+        }
+        
+        debugLog("User data retrieved successfully");
+        return userSnap.data();
     } catch (error) {
-        console.error("Error getting user data:", error);
+        debugLog("Error getting user data:", error);
         showOutput("Failed to load data", "error", 3000);
         return null;
     }
@@ -118,17 +174,23 @@ async function getUserData() {
 
 async function updateUserData(data) {
     try {
+        debugLog("Updating user data:", data);
         const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
         const userRef = doc(db, "users", currentUser.id);
-        await updateDoc(userRef, data);
+        await updateDoc(userRef, {
+            ...data,
+            lastUpdated: new Date().toISOString()
+        });
+        debugLog("User data updated successfully");
     } catch (error) {
-        console.error("Error updating user data:", error);
+        debugLog("Error updating user data:", error);
         throw error;
     }
 }
 
 async function addTransaction(txData) {
     try {
+        debugLog("Adding transaction:", txData);
         const userData = await getUserData();
         if (!userData) return;
 
@@ -136,10 +198,12 @@ async function addTransaction(txData) {
         const userRef = doc(db, "users", currentUser.id);
         
         await updateDoc(userRef, {
-            transactions: [...userData.transactions, txData]
+            transactions: [...userData.transactions, txData],
+            lastUpdated: new Date().toISOString()
         });
+        debugLog("Transaction added successfully");
     } catch (error) {
-        console.error("Error adding transaction:", error);
+        debugLog("Error adding transaction:", error);
         throw error;
     }
 }
@@ -150,28 +214,37 @@ async function updateUI() {
         await updateFaucetTimer();
         await renderActivityFeed();
     } catch (error) {
-        console.error("UI update error:", error);
+        debugLog("UI update error:", error);
+        throw error;
     }
 }
 
 async function updateBalanceDisplay() {
     const userData = await getUserData();
-    if (!userData) return;
+    if (!userData) {
+        document.getElementById('userBalance').textContent = "Error loading";
+        return;
+    }
     
     document.getElementById('userBalance').textContent = userData.balance.toFixed(4) + ' MON';
+    debugLog("Balance display updated");
 }
 
 async function startCountdown() {
     clearInterval(countdownInterval);
     
     const userData = await getUserData();
-    if (!userData) return;
+    if (!userData) {
+        document.getElementById('faucetTimer').textContent = "Error loading";
+        return;
+    }
     
     const now = Date.now();
     const timeSinceLastClaim = now - userData.lastClaim;
     
     if (timeSinceLastClaim >= config.claimInterval) {
-        document.getElementById('faucetTimer').textContent = '';
+        document.getElementById('faucetTimer').textContent = 'Ready to claim';
+        debugLog("Countdown: Ready to claim");
         return;
     }
     
@@ -180,13 +253,17 @@ async function startCountdown() {
     
     countdownInterval = setInterval(async () => {
         const userData = await getUserData();
-        if (!userData) return;
+        if (!userData) {
+            clearInterval(countdownInterval);
+            return;
+        }
         
         const remaining = userData.lastClaim + config.claimInterval - Date.now();
         
         if (remaining <= 0) {
             clearInterval(countdownInterval);
-            document.getElementById('faucetTimer').textContent = '';
+            document.getElementById('faucetTimer').textContent = 'Ready to claim';
+            debugLog("Countdown expired - ready to claim");
             return;
         }
         
@@ -229,7 +306,7 @@ async function startClaimProcess() {
         
         await claimMON();
     } catch (error) {
-        console.error("Claim process error:", error);
+        debugLog("Claim process error:", error);
         showOutput("Failed to process claim", "error", 4000);
     } finally {
         claimBtn.disabled = false;
@@ -263,7 +340,7 @@ async function claimMON() {
         startCountdown();
         captchaVerified = false;
     } catch (error) {
-        console.error("Claim error:", error);
+        debugLog("Claim error:", error);
         throw error;
     }
 }
@@ -322,7 +399,7 @@ async function processWithdrawal() {
         showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
         await updateUI();
     } catch (error) {
-        console.error("Withdrawal error:", error);
+        debugLog("Withdrawal error:", error);
         let errorMsg = 'Withdrawal failed. Please try again.';
         
         if (error.message.includes('insufficient funds')) {
@@ -362,7 +439,10 @@ async function renderActivityFeed() {
     activityFeed.innerHTML = '';
     
     const userData = await getUserData();
-    if (!userData || !userData.transactions) return;
+    if (!userData || !userData.transactions) {
+        activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">Error loading history</p>';
+        return;
+    }
     
     if (userData.transactions.length === 0) {
         activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No faucet activity yet</p>';
@@ -407,8 +487,13 @@ async function renderActivityFeed() {
 }
 
 function showOutput(message, type, duration = 4000) {
-    console.log(`[${type}] ${message}`);
+    debugLog(`UI Output [${type}]: ${message}`);
     const outputData = document.getElementById('outputData');
+    if (!outputData) {
+        debugLog("Output data element not found!");
+        return;
+    }
+    
     outputData.textContent = message;
     outputData.className = 'output-data';
     
