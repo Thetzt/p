@@ -1,43 +1,73 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Telegram Firebase Test</title>
+    <title>Telegram Login | MON Faucet</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script async src="https://telegram.org/js/telegram-widget.js?19" 
-            data-telegram-login="uxxucc_bot" 
+            data-telegram-login="your_bot_username_bot" 
             data-size="large" 
             data-onauth="onTelegramAuth(user)" 
             data-request-access="write"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
             padding: 20px;
+        }
+        .login-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
             text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
-        button {
-            padding: 10px 20px;
-            background: #0088cc;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 10px;
+        h1 {
+            color: #88d3ce;
+            margin-bottom: 10px;
         }
-        #userData {
+        p {
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 30px;
+        }
+        #status {
             margin-top: 20px;
-            padding: 15px;
-            border: 1px solid #ddd;
+            padding: 10px;
             border-radius: 5px;
-            background: #f9f9f9;
+        }
+        .success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+        }
+        .error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
         }
     </style>
 </head>
 <body>
-    <h1>Telegram Firebase Test</h1>
-    <div id="telegram-login"></div>
-    <div id="userData">No user data</div>
+    <div class="login-container">
+        <h1>MON Faucet</h1>
+        <p>Login with Telegram to continue</p>
+        
+        <!-- Telegram Login Button -->
+        <div id="telegram-login"></div>
+        
+        <!-- Status Message -->
+        <div id="status"></div>
+    </div>
 
     <!-- Firebase and App Scripts -->
     <script type="module">
+        // Initialize Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -54,40 +84,51 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        window.saveUserData = async function(user) {
+        // Function to save user data to Firebase
+        window.saveTelegramUser = async function(user) {
+            const statusEl = document.getElementById('status');
+            
             try {
+                // Save user data to Firestore
                 await setDoc(doc(db, "users", user.id.toString()), {
                     id: user.id,
-                    firstName: user.first_name,
-                    lastName: user.last_name || '',
-                    username: user.username || '',
-                    photoUrl: user.photo_url || '',
-                    authDate: user.auth_date,
+                    first_name: user.first_name,
+                    last_name: user.last_name || null,
+                    username: user.username || null,
+                    photo_url: user.photo_url || null,
+                    auth_date: user.auth_date,
                     hash: user.hash,
-                    lastLogin: new Date().toISOString()
+                    last_login: new Date().toISOString(),
+                    created_at: new Date().toISOString()
                 });
-                document.getElementById('userData').innerHTML = `
-                    <h3>User Saved to Firebase!</h3>
-                    <p>ID: ${user.id}</p>
-                    <p>Name: ${user.first_name} ${user.last_name || ''}</p>
-                    <p>Username: @${user.username || 'none'}</p>
-                `;
-                console.log("User data saved to Firebase");
+
+                // Store user in localStorage and redirect
+                localStorage.setItem('telegramUser', JSON.stringify(user));
+                statusEl.textContent = "Login successful! Redirecting...";
+                statusEl.className = "success";
+                
+                // Redirect after short delay
+                setTimeout(() => {
+                    window.location.href = 'claim.html';
+                }, 1500);
+                
             } catch (error) {
                 console.error("Error saving user data:", error);
-                document.getElementById('userData').innerHTML = `
-                    <h3 style="color:red">Error Saving Data</h3>
-                    <p>${error.message}</p>
-                `;
+                statusEl.textContent = "Error saving your data. Please try again.";
+                statusEl.className = "error";
             }
         };
     </script>
 
+    <!-- Telegram Auth Handler -->
     <script>
         function onTelegramAuth(user) {
             if (user) {
-                localStorage.setItem('telegramUser', JSON.stringify(user));
-                window.saveUserData(user);
+                console.log("Telegram user authenticated:", user);
+                window.saveTelegramUser(user);
+            } else {
+                document.getElementById('status').textContent = "Authentication failed. Please try again.";
+                document.getElementById('status').className = "error";
             }
         }
     </script>
