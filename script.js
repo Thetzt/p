@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 userAvatar.src = 'https://telegram.org/img/t_logo.png';
                 userAvatar.style.objectFit = 'contain';
-                userAvatar.style.padding = '8px';
+                userAvatar.style.padding: '8px';
                 userAvatar.style.backgroundColor = '#0088cc';
             }
 
@@ -186,33 +186,35 @@ function startClaimProcess() {
 function claimMON(userId) {
     const claimBtn = document.getElementById('claimButton');
     claimBtn.disabled = true;
+    claimBtn.classList.add('button-loading');
+    claimBtn.textContent = 'Claiming...';
     
     const deviceFingerprint = generateDeviceFingerprint();
     
     db.collection("users").doc(userId).get().then(function(doc) {
-        if (!doc.exists) return;
+        if (!doc.exists) {
+            resetClaimButton(claimBtn);
+            return;
+        }
         
         const userData = doc.data();
         
         if (userData.lastDevice && userData.lastDevice !== deviceFingerprint) {
             showOutput('You can only claim from one device per account', 'error', 4000);
-            claimBtn.disabled = false;
+            resetClaimButton(claimBtn);
             return;
         }
         
         showOutput('Claiming MON...', 'info');
         
-        // Get current balance first
         const currentBalance = userData.balance || 0;
         const newBalance = currentBalance + config.claimRate;
         
-        // Update user data in Firestore
         db.collection("users").doc(userId).update({
             balance: newBalance,
             lastClaim: Date.now(),
             lastDevice: deviceFingerprint
         }).then(function() {
-            // Record transaction
             db.collection("transactions").add({
                 type: 'claim',
                 amount: config.claimRate,
@@ -220,22 +222,37 @@ function claimMON(userId) {
                 userId: userId
             }).then(function() {
                 showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
-                updateUI(userId); // Update UI immediately
+                updateUI(userId);
                 startCountdown(userId);
-                claimBtn.disabled = false;
+                resetClaimButton(claimBtn);
                 captchaVerified = false;
+            }).catch(function(error) {
+                console.error('Transaction record error:', error);
+                showOutput('Failed to record transaction', 'error', 4000);
+                resetClaimButton(claimBtn);
             });
         }).catch(function(error) {
-            console.error('Claim error:', error);
-            showOutput('Failed to claim MON. Please try again.', 'error', 4000);
-            claimBtn.disabled = false;
+            console.error('Balance update error:', error);
+            showOutput('Failed to update balance', 'error', 4000);
+            resetClaimButton(claimBtn);
         });
+    }).catch(function(error) {
+        console.error('User data fetch error:', error);
+        showOutput('Failed to fetch user data', 'error', 4000);
+        resetClaimButton(claimBtn);
     });
+}
+
+function resetClaimButton(button) {
+    button.disabled = false;
+    button.classList.remove('button-loading');
+    button.textContent = 'Claim MON';
 }
 
 async function processWithdrawal() {
     const address = document.getElementById('withdrawAddress').value.trim();
     const user = auth.currentUser;
+    const withdrawBtn = document.getElementById('withdrawButton');
     
     if (!user) {
         showOutput('Please login with Telegram first', 'error', 4000);
@@ -247,20 +264,22 @@ async function processWithdrawal() {
         return;
     }
     
-    const userDoc = await db.collection("users").doc(user.uid).get();
-    if (!userDoc.exists) return;
-    
-    const userData = userDoc.data();
-    if (userData.balance < config.minWithdraw) {
-        showOutput(`Minimum withdrawal is ${config.minWithdraw} MON`, 'error', 4000);
-        return;
-    }
-    
-    const withdrawBtn = document.getElementById('withdrawButton');
     withdrawBtn.disabled = true;
+    withdrawBtn.classList.add('button-loading');
+    withdrawBtn.textContent = 'Sending MON...';
     showOutput('Processing withdrawal...', 'info');
 
     try {
+        const userDoc = await db.collection("users").doc(user.uid).get();
+        if (!userDoc.exists) {
+            throw new Error('User not found');
+        }
+        
+        const userData = userDoc.data();
+        if (userData.balance < config.minWithdraw) {
+            throw new Error(`Minimum withdrawal is ${config.minWithdraw} MON`);
+        }
+
         const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
             chainId: config.chainId,
             name: 'monad-testnet'
@@ -278,16 +297,13 @@ async function processWithdrawal() {
             value: ethers.utils.parseEther(userData.balance.toString())
         });
         
-        // Wait for transaction to be mined
         const receipt = await tx.wait();
         
         if (receipt.status === 1) {
-            // Transaction successful - update Firestore
             await db.collection("users").doc(user.uid).update({
                 balance: 0
             });
             
-            // Record transaction
             await db.collection("transactions").add({
                 type: 'withdraw',
                 hash: tx.hash,
@@ -299,7 +315,7 @@ async function processWithdrawal() {
             });
             
             showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
-            updateUI(user.uid); // Update UI immediately
+            updateUI(user.uid);
         } else {
             throw new Error('Transaction failed');
         }
@@ -312,11 +328,15 @@ async function processWithdrawal() {
             errorMsg = 'Faucet has insufficient funds.';
         } else if (error.message.includes('underpriced')) {
             errorMsg = 'Network congestion. Please try again.';
+        } else if (error.message.includes('Minimum withdrawal')) {
+            errorMsg = error.message;
         }
         
         showOutput(errorMsg, 'error', 4000);
     } finally {
         withdrawBtn.disabled = false;
+        withdrawBtn.classList.remove('button-loading');
+        withdrawBtn.textContent = 'Withdraw';
     }
 }
 
@@ -354,6 +374,7 @@ function renderActivityFeed(userId) {
     db.collection("transactions")
         .where("userId", "==", userId)
         .orderBy("timestamp", "desc")
+        .limit(10)
         .get()
         .then(function(querySnapshot) {
             if (querySnapshot.empty) {
@@ -393,6 +414,10 @@ function renderActivityFeed(userId) {
                 
                 activityFeed.appendChild(activityItem);
             });
+        })
+        .catch(function(error) {
+            console.error('Error loading activity feed:', error);
+            activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">Error loading activity history</p>';
         });
 }
 
