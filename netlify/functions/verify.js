@@ -46,30 +46,52 @@ exports.handler = async (event) => {
       };
     }
 
-    // Use Telegram ID as the consistent UID
-    const uid = `telegram:${userData.id}`;
+    // Check for referral
+    const refId = event.queryStringParameters?.ref;
+    let referralUpdate = {};
     
-    // Create or update user document
-    const userRef = admin.firestore().collection('users').doc(uid);
-    const userDoc = await userRef.get();
-    
-    if (!userDoc.exists) {
-      await userRef.set({
-        telegramUser: userData,
-        balance: 0,
-        lastClaim: 0,
-        lastDevice: null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-    } else {
-      // Update Telegram user data if needed
-      await userRef.update({
-        telegramUser: userData
+    if (refId && refId !== userData.id.toString()) {
+      referralUpdate = {
+        [`referrals.${userData.id}`]: {
+          username: userData.username || userData.first_name,
+          joinedAt: admin.firestore.FieldValue.serverTimestamp()
+        },
+        'referrals.count': admin.firestore.FieldValue.increment(1)
+      };
+      
+      // Add bonus to referrer's account
+      await admin.firestore().runTransaction(async (t) => {
+        const refDoc = await t.get(admin.firestore().collection("users").doc(`telegram:${refId}`));
+        if (refDoc.exists) {
+          t.update(admin.firestore().collection("users").doc(`telegram:${refId}`), {
+            balance: admin.firestore.FieldValue.increment(0.01),
+            ...referralUpdate
+          });
+        }
       });
     }
 
-    // Create custom token
-    const token = await admin.auth().createCustomToken(uid);
+    // Create or update user
+    const uid = `telegram:${userData.id}`;
+    const userRef = admin.firestore().collection('users').doc(uid);
+    
+    await userRef.set({
+      telegramUser: userData,
+      balance: admin.firestore.FieldValue.increment(0),
+      lastClaim: 0,
+      lastDevice: null,
+      referrals: {
+        count: 0,
+        ...(refId && refId !== userData.id.toString() ? { referrer: refId } : {})
+      },
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    // Create Firebase token
+    const token = await admin.auth().createCustomToken(uid, {
+      telegram_id: userData.id,
+      authenticated: true
+    });
 
     return {
       statusCode: 200,
