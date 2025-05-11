@@ -1,46 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <title>Login | MON Faucet</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClaimPX - Telegram Login</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; text-align: center; }
-        #telegram-login { margin: 30px 0; }
-        #user-info, #loading { display: none; margin-top: 20px; padding: 20px; background: #f5f5f5; border-radius: 8px; }
-        button { background: #0088cc; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
-        .error { color: #d32f2f; margin: 15px 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .login-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #88d3ce;
+            margin-bottom: 10px;
+        }
+        p {
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 30px;
+        }
     </style>
+    <!-- Add Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
-    <h1>ClaimPX</h1>
-    <p>Login with Telegram to access your account</p>
-    
-    <div id="telegram-login"></div>
-    <div id="loading">Authenticating...</div>
-    <div id="user-info">
-        <h2>Welcome, <span id="username"></span>!</h2>
-        <p>Balance: <span id="balance">0.00</span></p>
-        <button id="logout-btn">Logout</button>
+    <div class="login-container">
+        <h1>MON Faucet</h1>
+        <p>Login with Telegram to request 0.01 MON tokens</p>
+        
+        <script async src="https://telegram.org/js/telegram-widget.js?19" 
+                data-telegram-login="uxxucc_bot" 
+                data-size="large" 
+                data-onauth="onTelegramAuth(user)" 
+                data-request-access="write"></script>
     </div>
-    <div id="error" class="error"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-        import { 
-            getAuth, 
-            signInWithCustomToken,
-            signOut,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            setDoc,
-            getDoc
-        } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
-
-        // Firebase Config
+    <script>
+        // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
             authDomain: "claimpx.firebaseapp.com",
@@ -50,81 +62,46 @@
             appId: "1:1012471480360:web:3b16bc6acc6adcf371b51d",
             measurementId: "G-NYK5SSMCF3"
         };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        // Telegram Widget Loader
-        function loadTelegramWidget() {
-            const script = document.createElement('script');
-            script.src = "https://telegram.org/js/telegram-widget.js?22";
-            script.async = true;
-            script.setAttribute('data-telegram-login', "uxxucc_bot");
-            script.setAttribute('data-size', "large");
-            script.setAttribute('data-onauth', "onTelegramAuth(user)");
-            script.setAttribute('data-auth-url', "https://claimpx.netlify.app/.netlify/functions/verify");
-            document.getElementById('telegram-login').appendChild(script);
-        }
-
-        // Auth Handler
-        window.onTelegramAuth = async (userData) => {
-            try {
-                document.getElementById('loading').style.display = 'block';
-                document.getElementById('error').textContent = '';
-                
-                const response = await fetch("/.netlify/functions/verify", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(userData)
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(result.error || "Verification failed");
-                }
-
-                await signInWithCustomToken(auth, result.token);
-                
-                // Save user data
-                const userRef = doc(db, "users", auth.currentUser.uid);
-                await setDoc(userRef, {
-                    telegramId: userData.id,
-                    username: userData.username || userData.first_name,
-                    balance: 0.00,
-                    lastLogin: new Date()
-                }, { merge: true });
-                
-            } catch (error) {
-                document.getElementById('error').textContent = `Login failed: ${error.message}`;
-                console.error("Auth error:", error);
-            } finally {
-                document.getElementById('loading').style.display = 'none';
-            }
-        };
-
-        // Auth State Listener
-        onAuthStateChanged(auth, async (user) => {
+        async function onTelegramAuth(user) {
             if (user) {
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                if (userDoc.exists()) {
-                    document.getElementById('username').textContent = userDoc.data().username;
-                    document.getElementById('balance').textContent = userDoc.data().balance.toFixed(4);
-                    document.getElementById('user-info').style.display = 'block';
-                    document.getElementById('telegram-login').style.display = 'none';
+                try {
+                    // Verify with backend and get Firebase token
+                    const response = await fetch("/.netlify/functions/verify", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(user)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(result.error || "Verification failed");
+                    }
+
+                    // Sign in with Firebase
+                    await auth.signInWithCustomToken(result.token);
+                    
+                    // Create/update user document
+                    const userRef = db.collection("users").doc(auth.currentUser.uid);
+                    await userRef.set({
+                        telegramUser: user,
+                        balance: 0.00,
+                        lastClaim: 0,
+                        lastDevice: null
+                    }, { merge: true });
+                    
+                    window.location.href = 'claim.html';
+                } catch (error) {
+                    console.error("Auth error:", error);
+                    alert("Login failed: " + error.message);
                 }
-            } else {
-                document.getElementById('user-info').style.display = 'none';
-                document.getElementById('telegram-login').style.display = 'block';
             }
-        });
-
-        // Logout
-        document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
-
-        // Initialize
-        window.addEventListener('DOMContentLoaded', loadTelegramWidget);
+        }
     </script>
 </body>
 </html>
