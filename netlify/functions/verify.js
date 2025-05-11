@@ -1,108 +1,79 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin with error handling
-try {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-        })
-    });
-    console.log("Firebase Admin initialized successfully");
-} catch (error) {
-    console.error("Firebase Admin initialization failed:", error);
-    process.exit(1);
-}
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+  })
+});
 
 exports.handler = async (event) => {
-    // Only allow POST requests
-    if (event.httpMethod !== 'POST') {
-        return {
-            statusCode: 405,
-            body: JSON.stringify({ error: 'Method Not Allowed' })
-        };
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers: {
+        'Access-Control-Allow-Origin': 'https://claimpx.netlify.app',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      }
+    };
+  }
+
+  // Main request handler
+  try {
+    const { hash, ...userData } = JSON.parse(event.body);
+    
+    // 1. Verify Telegram hash
+    const dataCheckString = Object.keys(userData)
+      .sort()
+      .map(key => `${key}=${userData[key]}`)
+      .join('\n');
+    
+    const secretKey = crypto.createHash('sha256')
+      .update(process.env.TELEGRAM_BOT_TOKEN)
+      .digest();
+    
+    const computedHash = crypto.createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+
+    if (computedHash !== hash) {
+      return {
+        statusCode: 401,
+        headers: { 'Access-Control-Allow-Origin': 'https://claimpx.netlify.app' },
+        body: JSON.stringify({ error: 'Invalid Telegram authentication' })
+      };
     }
 
-    try {
-        const BOT_TOKEN = "7666230446:AAHyavRyTRP6n0703ZxZg-Q4q_FI6LlAizs";
-        let userData;
-        
-        try {
-            userData = JSON.parse(event.body);
-        } catch (parseError) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'Invalid JSON data' })
-            };
-        }
+    // 2. Create Firebase token
+    const uid = `telegram:${userData.id}`;
+    const token = await admin.auth().createCustomToken(uid, {
+      telegram_id: userData.id,
+      authenticated: true
+    });
 
-        // Verify all required fields exist
-        if (!userData.id || !userData.auth_date || !userData.hash) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: 'Missing required Telegram auth data' })
-            };
-        }
+    return {
+      statusCode: 200,
+      headers: { 
+        'Access-Control-Allow-Origin': 'https://claimpx.netlify.app',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ token })
+    };
 
-        // Verify Telegram data
-        const dataCheckString = Object.keys(userData)
-            .filter(key => key !== 'hash')
-            .sort()
-            .map(key => `${key}=${userData[key]}`)
-            .join('\n');
-        
-        const secretKey = crypto.createHash('sha256')
-            .update(BOT_TOKEN)
-            .digest();
-        
-        const computedHash = crypto.createHmac('sha256', secretKey)
-            .update(dataCheckString)
-            .digest('hex');
-
-        if (computedHash !== userData.hash) {
-            console.error("Hash verification failed", {
-                receivedHash: userData.hash,
-                computedHash: computedHash,
-                dataCheckString: dataCheckString
-            });
-            return {
-                statusCode: 401,
-                body: JSON.stringify({ error: 'Invalid Telegram authentication' })
-            };
-        }
-
-        // Create Firebase custom token with additional claims
-        const uid = `telegram:${userData.id}`;
-        const additionalClaims = {
-            telegramId: userData.id,
-            authMethod: 'telegram'
-        };
-
-        const token = await admin.auth().createCustomToken(uid, additionalClaims);
-        console.log("Token generated for user:", uid);
-        
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ 
-                token,
-                userId: uid
-            })
-        };
-        
-    } catch (error) {
-        console.error('Full error details:', {
-            message: error.message,
-            stack: error.stack,
-            inputData: event.body
-        });
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ 
-                error: 'Authentication failed',
-                details: error.message 
-            })
-        };
-    }
+  } catch (error) {
+    console.error('Error:', error);
+    return {
+      statusCode: 500,
+      headers: { 'Access-Control-Allow-Origin': 'https://claimpx.netlify.app' },
+      body: JSON.stringify({ 
+        error: 'auth/internal-error',
+        details: error.message 
+      })
+    };
+  }
 };
