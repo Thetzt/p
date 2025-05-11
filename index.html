@@ -33,6 +33,11 @@
             color: rgba(255,255,255,0.7);
             margin-bottom: 30px;
         }
+        .error {
+            color: #ff4444;
+            margin-top: 20px;
+            display: none;
+        }
     </style>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -48,6 +53,8 @@
                 data-size="large" 
                 data-onauth="onTelegramAuth(user)" 
                 data-request-access="write"></script>
+        
+        <div id="loginError" class="error"></div>
     </div>
 
     <script>
@@ -69,6 +76,8 @@
         async function onTelegramAuth(user) {
             if (user) {
                 try {
+                    document.getElementById('loginError').style.display = 'none';
+                    
                     // Verify with backend and get Firebase token
                     const response = await fetch("/.netlify/functions/verify", {
                         method: "POST",
@@ -84,10 +93,14 @@
 
                     // Sign in with Firebase
                     await auth.signInWithCustomToken(result.token);
+                    
+                    // Redirect to claim page
                     window.location.href = 'claim.html';
                 } catch (error) {
                     console.error("Auth error:", error);
-                    alert("Login failed: " + error.message);
+                    const errorElement = document.getElementById('loginError');
+                    errorElement.textContent = "Login failed: " + error.message;
+                    errorElement.style.display = 'block';
                 }
             }
         }
