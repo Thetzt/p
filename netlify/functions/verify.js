@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -11,7 +10,6 @@ admin.initializeApp({
 });
 
 exports.handler = async (event) => {
-  // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
@@ -23,11 +21,10 @@ exports.handler = async (event) => {
     };
   }
 
-  // Main request handler
   try {
     const { hash, ...userData } = JSON.parse(event.body);
     
-    // 1. Verify Telegram hash
+    // Verify Telegram hash
     const dataCheckString = Object.keys(userData)
       .sort()
       .map(key => `${key}=${userData[key]}`)
@@ -49,12 +46,30 @@ exports.handler = async (event) => {
       };
     }
 
-    // 2. Create Firebase token
+    // Use Telegram ID as the consistent UID
     const uid = `telegram:${userData.id}`;
-    const token = await admin.auth().createCustomToken(uid, {
-      telegram_id: userData.id,
-      authenticated: true
-    });
+    
+    // Create or update user document
+    const userRef = admin.firestore().collection('users').doc(uid);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      await userRef.set({
+        telegramUser: userData,
+        balance: 0,
+        lastClaim: 0,
+        lastDevice: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      // Update Telegram user data if needed
+      await userRef.update({
+        telegramUser: userData
+      });
+    }
+
+    // Create custom token
+    const token = await admin.auth().createCustomToken(uid);
 
     return {
       statusCode: 200,
