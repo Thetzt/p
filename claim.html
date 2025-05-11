@@ -345,7 +345,48 @@
             text-align: center;
             margin-top: 5px;
         }
+
+/* Add new styles for invite section */
+        .invite-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 3px solid var(--primary);
+        }
+        
+        .invite-link {
+            display: flex;
+            margin-top: 15px;
+        }
+        
+        .invite-link input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px 0 0 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.3);
+            color: white;
+        }
+        
+        .invite-link button {
+            width: auto;
+            padding: 0 15px;
+            border-radius: 0 8px 8px 0;
+            background: var(--primary);
+        }
+        
+        .referral-stats {
+            margin-top: 15px;
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .referral-stats strong {
+            color: var(--secondary);
+        }
+
     </style>
+    
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -395,17 +436,19 @@
                 <div class="min-amount">Minimum withdrawal: 0.01 MON</div>
             </div>
             
-            <div class="section-title">Faucet History</div>
-            <div id="activityFeed">
-                <!-- Activity items will be added here -->
-            </div>
-            
-            <div class="footer">
-                © 2025 MON Faucet. All rights reserved.<br>
-                Network: <span class="network-badge">Testnet</span>
-            </div>
+           <div class="section-title">Invite Friends</div>
+    <div class="invite-container">
+        <p>Invite friends and earn 0.01 MON for each successful referral!</p>
+        <div class="invite-link">
+            <input type="text" id="inviteLink" readonly value="https://claimpx.netlify.app">
+            <button id="copyInviteBtn">Copy</button>
+        </div>
+        <div class="referral-stats">
+            You've invited: <strong id="referralCount">0</strong> friends (<strong id="referralEarnings">0.00</strong> MON earned)
         </div>
     </div>
+    
+
 <!-- Popunder ads script -->
     <script type='text/javascript' src='//pl26588542.profitableratecpm.com/16/0f/6b/160f6bfa3fd6a89824e441d2914b127c.js'></script>
 
