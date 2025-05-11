@@ -279,25 +279,30 @@ async function processWithdrawal() {
         });
         
         // Wait for transaction to be mined
-        await tx.wait();
+        const receipt = await tx.wait();
         
-        // Record transaction
-        await db.collection("transactions").add({
-            type: 'withdraw',
-            hash: tx.hash,
-            to: address,
-            amount: userData.balance,
-            timestamp: new Date().toISOString(),
-            userId: user.uid
-        });
-        
-        // Update balance
-        await db.collection("users").doc(user.uid).update({
-            balance: 0
-        });
-        
-        showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
-        updateUI(user.uid); // Update UI immediately
+        if (receipt.status === 1) {
+            // Transaction successful - update Firestore
+            await db.collection("users").doc(user.uid).update({
+                balance: 0
+            });
+            
+            // Record transaction
+            await db.collection("transactions").add({
+                type: 'withdraw',
+                hash: tx.hash,
+                to: address,
+                amount: userData.balance,
+                timestamp: new Date().toISOString(),
+                userId: user.uid,
+                status: 'completed'
+            });
+            
+            showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
+            updateUI(user.uid); // Update UI immediately
+        } else {
+            throw new Error('Transaction failed');
+        }
         
     } catch (error) {
         console.error('Withdrawal error:', error);
