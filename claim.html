@@ -159,12 +159,6 @@
             color: var(--secondary);
         }
         
-        .faucet-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
         button {
             width: 100%;
             padding: 14px;
@@ -272,81 +266,6 @@
             border-left-color: var(--success);
         }
         
-        .activity-item {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            border-left: 3px solid var(--primary);
-        }
-        
-        .activity-title {
-            font-weight: 600;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-        }
-        
-        .activity-details {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.9rem;
-        }
-        
-        .activity-address {
-            font-family: monospace;
-            color: var(--secondary);
-            text-decoration: none;
-            cursor: pointer;
-        }
-        
-        .activity-address:hover {
-            text-decoration: underline;
-        }
-        
-        .footer {
-            text-align: center;
-            margin-top: auto;
-            padding: 20px 0;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.8rem;
-        }
-        
-        .network-badge {
-            display: inline-block;
-            background: rgba(110, 69, 226, 0.2);
-            color: var(--primary);
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            margin-left: 8px;
-        }
-        
-        .section-title {
-            color: var(--light); 
-            margin: 20px 0 15px; 
-            font-size: 1.3rem; 
-            font-weight: 500; 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
-            padding-bottom: 8px;
-        }
-        
-        /* reCAPTCHA styles */
-        .recaptcha-container {
-            margin: 15px auto;
-            display: flex;
-            justify-content: center;
-            width: 100%;
-        }
-        
-        .min-amount {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.8rem;
-            text-align: center;
-            margin-top: 5px;
-        }
-
-/* Add new styles for invite section */
         .invite-container {
             background: rgba(0, 0, 0, 0.2);
             border-radius: 8px;
@@ -384,9 +303,49 @@
         .referral-stats strong {
             color: var(--secondary);
         }
-
+        
+        .footer {
+            text-align: center;
+            margin-top: auto;
+            padding: 20px 0;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+        
+        .network-badge {
+            display: inline-block;
+            background: rgba(110, 69, 226, 0.2);
+            color: var(--primary);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .section-title {
+            color: var(--light); 
+            margin: 20px 0 15px; 
+            font-size: 1.3rem; 
+            font-weight: 500; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+            padding-bottom: 8px;
+        }
+        
+        .recaptcha-container {
+            margin: 15px auto;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+        
+        .min-amount {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 5px;
+        }
     </style>
-    
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -436,23 +395,25 @@
                 <div class="min-amount">Minimum withdrawal: 0.01 MON</div>
             </div>
             
-           <div class="section-title">Invite Friends</div>
-    <div class="invite-container">
-        <p>Invite friends and earn 0.01 MON for each successful referral!</p>
-        <div class="invite-link">
-            <input type="text" id="inviteLink" readonly value="https://claimpx.netlify.app">
-            <button id="copyInviteBtn">Copy</button>
-        </div>
-        <div class="referral-stats">
-            You've invited: <strong id="referralCount">0</strong> friends (<strong id="referralEarnings">0.00</strong> MON earned)
+            <div class="section-title">Invite Friends</div>
+            <div class="invite-container">
+                <p>Invite friends and earn 0.01 MON for each successful referral!</p>
+                <div class="invite-link">
+                    <input type="text" id="inviteLink" readonly>
+                    <button id="copyInviteBtn">Copy</button>
+                </div>
+                <div class="referral-stats">
+                    You've invited: <strong id="referralCount">0</strong> friends (<strong id="referralEarnings">0.00</strong> MON earned)
+                </div>
+            </div>
+            
+            <div class="footer">
+                © 2025 MON Faucet. All rights reserved.<br>
+                Network: <span class="network-badge">Testnet</span>
+            </div>
         </div>
     </div>
-    
 
-<!-- Popunder ads script -->
-    <script type='text/javascript' src='//pl26588542.profitableratecpm.com/16/0f/6b/160f6bfa3fd6a89824e441d2914b127c.js'></script>
-
-    <!-- Ethers.js with fallback -->
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
     <script>
         if (typeof ethers === 'undefined') {
@@ -460,8 +421,7 @@
         }
     </script>
     <script>
-
-       // Initialize Firebase
+        // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
             authDomain: "claimpx.firebaseapp.com",
@@ -479,7 +439,7 @@
         // Global state
         let countdownInterval;
         let captchaVerified = false;
-        let unsubscribeUserListener; // For real-time updates
+        let unsubscribeUserListener;
 
         // Configuration
         const config = {
@@ -490,7 +450,8 @@
             claimInterval: 60 * 60 * 1000, // 1 hour in ms
             minWithdraw: 0.01, // Minimum withdrawal amount
             captchaDuration: 5 * 60 * 1000, // 5 minutes for captcha
-            explorerUrl: 'https://testnet.monadexplorer.com'
+            explorerUrl: 'https://testnet.monadexplorer.com',
+            referralBonus: 0.01 // MON per referral
         };
 
         // Initialize when DOM loads
@@ -505,52 +466,33 @@
                 }
                 
                 // Setup real-time listener for user data
-                unsubscribeUserListener = db.collection("users").doc(user.uid)
-                    .onSnapshot(function(doc) {
-                        if (doc.exists) {
-                            const userData = doc.data();
-                            updateUI(user.uid, userData);
-                        }
-                    }, function(error) {
-                        console.error("User data listener error:", error);
-                    });
-
-
-
-                // Update referral stats
-                            if (userData.referrals) {
-                                document.getElementById('referralCount').textContent = userData.referrals.count || 0;
-                                document.getElementById('referralEarnings').textContent = 
-                                    ((userData.referrals.count || 0) * 0.01).toFixed(2);
-                            }
-                        }
-                    });
-                
-                // Setup invite link with referral ID
-                setupInviteLink(user.uid);
-                setupProfile(user.uid);
-                setupEventListeners();
-                startCountdown(user.uid);
-            });
-        });
-
-        function setupInviteLink(userId) {
-            const inviteLink = document.getElementById('inviteLink');
-            inviteLink.value = `https://claimpx.netlify.app?ref=${userId}`;
-            
-            document.getElementById('copyInviteBtn').addEventListener('click', function() {
-                inviteLink.select();
-                document.execCommand('copy');
-                showOutput('Invite link copied!', 'success', 2000);
-            });
-        }
+                setupRealtimeListener(user.uid);
                 
                 // Initial setup
                 setupProfile(user.uid);
+                setupInviteLink(user.uid);
                 setupEventListeners();
                 startCountdown(user.uid);
             });
         });
+
+        function setupRealtimeListener(userId) {
+            unsubscribeUserListener = db.collection("users").doc(userId)
+                .onSnapshot(function(doc) {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        updateUI(userId, userData);
+                        
+                        // Update referral stats
+                        const referralCount = userData.referrals?.count || 0;
+                        document.getElementById('referralCount').textContent = referralCount;
+                        document.getElementById('referralEarnings').textContent = 
+                            (referralCount * config.referralBonus).toFixed(2);
+                    }
+                }, function(error) {
+                    console.error("User data listener error:", error);
+                });
+        }
 
         function setupProfile(userId) {
             db.collection("users").doc(userId).get().then(function(doc) {
@@ -587,6 +529,17 @@
                         });
                     });
                 }
+            });
+        }
+
+        function setupInviteLink(userId) {
+            const inviteLink = document.getElementById('inviteLink');
+            inviteLink.value = `https://claimpx.netlify.app?ref=${userId}`;
+            
+            document.getElementById('copyInviteBtn').addEventListener('click', function() {
+                inviteLink.select();
+                document.execCommand('copy');
+                showOutput('Invite link copied!', 'success', 2000);
             });
         }
 
@@ -691,54 +644,46 @@
             
             const deviceFingerprint = generateDeviceFingerprint();
             
-            db.collection("users").doc(userId).get().then(function(doc) {
-                if (!doc.exists) {
-                    resetClaimButton(claimBtn);
-                    return;
-                }
-                
-                const userData = doc.data();
-                
-                if (userData.lastDevice && userData.lastDevice !== deviceFingerprint) {
-                    showOutput('You can only claim from one device per account', 'error', 4000);
-                    resetClaimButton(claimBtn);
-                    return;
-                }
-                
-                showOutput('Claiming MON...', 'info');
-                
-                const currentBalance = userData.balance || 0;
-                const newBalance = currentBalance + config.claimRate;
-                
-                // Update with transaction for reliability
-                db.runTransaction(function(transaction) {
-                    return transaction.get(db.collection("users").doc(userId)).then(function(doc) {
-                        if (!doc.exists) throw "Document does not exist!";
-                        
-                        const updatedBalance = (doc.data().balance || 0) + config.claimRate;
-                        transaction.update(db.collection("users").doc(userId), {
-                            balance: updatedBalance,
-                            lastClaim: Date.now(),
-                            lastDevice: deviceFingerprint
-                        });
+            db.runTransaction(function(transaction) {
+                return transaction.get(db.collection("users").doc(userId)).then(function(doc) {
+                    if (!doc.exists) throw "Document does not exist!";
+                    
+                    const userData = doc.data();
+                    
+                    // Check device fingerprint
+                    if (userData.lastDevice && userData.lastDevice !== deviceFingerprint) {
+                        throw "You can only claim from one device per account";
+                    }
+                    
+                    // Check claim cooldown
+                    const now = Date.now();
+                    const timeSinceLastClaim = now - (userData.lastClaim || 0);
+                    if (timeSinceLastClaim < config.claimInterval) {
+                        throw `Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`;
+                    }
+                    
+                    // Calculate new balance
+                    const newBalance = (userData.balance || 0) + config.claimRate;
+                    
+                    // Update user data
+                    transaction.update(db.collection("users").doc(userId), {
+                        balance: newBalance,
+                        lastClaim: now,
+                        lastDevice: deviceFingerprint
                     });
-                }).then(function() {
-                    showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
-                    resetClaimButton(claimBtn);
-                    captchaVerified = false;
-                }).catch(function(error) {
-                    console.error('Transaction failed: ', error);
-                    showOutput('Failed to claim MON. Please try again.', 'error', 4000);
-                    resetClaimButton(claimBtn);
+                    
+                    return newBalance;
                 });
+            }).then(function(newBalance) {
+                showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
+                resetClaimButton(claimBtn);
+                captchaVerified = false;
             }).catch(function(error) {
-                console.error('User data fetch error:', error);
-                showOutput('Failed to fetch user data', 'error', 4000);
+                console.error('Claim failed: ', error);
+                showOutput(typeof error === 'string' ? error : 'Failed to claim MON. Please try again.', 'error', 4000);
                 resetClaimButton(claimBtn);
             });
         }
-
-        
 
         async function processWithdrawal() {
             const address = document.getElementById('withdrawAddress').value.trim();
@@ -761,49 +706,54 @@
             showOutput('Processing withdrawal...', 'info');
 
             try {
-                const userDoc = await db.collection("users").doc(user.uid).get();
-                if (!userDoc.exists) {
-                    throw new Error('User not found');
-                }
-                
-                const userData = userDoc.data();
-                if (userData.balance < config.minWithdraw) {
-                    throw new Error(`Minimum withdrawal is ${config.minWithdraw} MON`);
-                }
-
-                const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
-                    chainId: config.chainId,
-                    name: 'monad-testnet'
-                });
-                
-                const wallet = new ethers.Wallet(config.privateKey, provider);
-                
-                const faucetBalance = await provider.getBalance(wallet.address);
-                if (ethers.utils.formatEther(faucetBalance) < userData.balance) {
-                    throw new Error('Faucet has insufficient funds');
-                }
-                
-                const tx = await wallet.sendTransaction({
-                    to: address,
-                    value: ethers.utils.parseEther(userData.balance.toString())
-                });
-                
-                const receipt = await tx.wait();
-                
-                if (receipt.status === 1) {
-                    // Update balance
-                    await db.collection("users").doc(user.uid).update({
+                // Get user data in transaction to ensure consistency
+                const result = await db.runTransaction(async (transaction) => {
+                    const userDoc = await transaction.get(db.collection("users").doc(user.uid));
+                    if (!userDoc.exists) throw new Error('User not found');
+                    
+                    const userData = userDoc.data();
+                    if (userData.balance < config.minWithdraw) {
+                        throw new Error(`Minimum withdrawal is ${config.minWithdraw} MON`);
+                    }
+                    
+                    // Verify faucet balance
+                    const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
+                        chainId: config.chainId,
+                        name: 'monad-testnet'
+                    });
+                    
+                    const wallet = new ethers.Wallet(config.privateKey, provider);
+                    const faucetBalance = await provider.getBalance(wallet.address);
+                    if (ethers.utils.formatEther(faucetBalance) < userData.balance) {
+                        throw new Error('Faucet has insufficient funds');
+                    }
+                    
+                    // Send transaction
+                    const tx = await wallet.sendTransaction({
+                        to: address,
+                        value: ethers.utils.parseEther(userData.balance.toString())
+                    });
+                    
+                    // Update user balance
+                    transaction.update(db.collection("users").doc(user.uid), {
                         balance: 0
                     });
                     
-                    showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
+                    return { tx, amount: userData.balance };
+                });
+                
+                // Wait for transaction confirmation
+                const receipt = await result.tx.wait();
+                if (receipt.status === 1) {
+                    showOutput(`Success! ${result.amount.toFixed(4)} MON sent to ${address}`, 'success', 4000);
                 } else {
                     throw new Error('Transaction failed');
                 }
                 
             } catch (error) {
                 console.error('Withdrawal error:', error);
-                let errorMsg = 'Transaction was successful but there was an UI update issue';
+                let errorMsg = 'Withdrawal completed but there was an UI update issue';
+                let isError = true;
                 
                 if (error.message.includes('insufficient funds')) {
                     errorMsg = 'Faucet has insufficient funds';
@@ -811,11 +761,11 @@
                     errorMsg = 'Network congestion. Please try again';
                 } else if (error.message.includes('Minimum withdrawal')) {
                     errorMsg = error.message;
-                } else if (error.message.includes('Transaction was successful')) {
-                    errorMsg = 'Withdrawal completed successfully!';
+                } else if (error.message.includes('completed')) {
+                    isError = false;
                 }
                 
-                showOutput(errorMsg, error.message.includes('success') ? 'success' : 'error', 4000);
+                showOutput(errorMsg, isError ? 'error' : 'success', 4000);
             } finally {
                 withdrawBtn.disabled = false;
                 withdrawBtn.classList.remove('button-loading');
@@ -823,15 +773,12 @@
             }
         }
 
-        // [Rest of the helper functions remain the same]
-    
+        function resetClaimButton(button) {
+            button.disabled = false;
+            button.classList.remove('button-loading');
+            button.textContent = 'Claim MON';
+        }
 
-
-
-
-
-
-        
         function generateDeviceFingerprint() {
             const userAgent = navigator.userAgent;
             const screenWidth = screen.width;
@@ -857,60 +804,6 @@
         function onCaptchaExpired() {
             captchaVerified = false;
             showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
-        }
-
-        function renderActivityFeed(userId) {
-            const activityFeed = document.getElementById('activityFeed');
-            activityFeed.innerHTML = '';
-            
-            db.collection("transactions")
-                .where("userId", "==", userId)
-                .orderBy("timestamp", "desc")
-                .limit(10)
-                .get()
-                .then(function(querySnapshot) {
-                    if (querySnapshot.empty) {
-                        activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">No faucet activity yet</p>';
-                        return;
-                    }
-                    
-                    querySnapshot.forEach(function(doc) {
-                        const tx = doc.data();
-                        const date = new Date(tx.timestamp);
-                        const dateStr = date.toLocaleDateString();
-                        const timeStr = date.toLocaleTimeString();
-                        
-                        const activityItem = document.createElement('div');
-                        activityItem.className = 'activity-item';
-                        
-                        if (tx.type === 'claim') {
-                            activityItem.innerHTML = `
-                                <div class="activity-title">MON Claimed</div>
-                                <div class="activity-details">
-                                    ${dateStr}, ${timeStr}<br>
-                                    ${tx.amount} MON added to your balance
-                                </div>
-                            `;
-                        } else if (tx.type === 'withdraw') {
-                            const shortAddress = `${tx.to.substring(0, 4)}...${tx.to.substring(tx.to.length - 4)}`;
-                            activityItem.innerHTML = `
-                                <div class="activity-title">MON Withdrawn</div>
-                                <div class="activity-details">
-                                    ${dateStr}, ${timeStr}<br>
-                                    <a href="${config.explorerUrl}/tx/${tx.hash}" target="_blank" class="activity-address">
-                                        ${tx.amount.toFixed(4)} MON sent to ${shortAddress}
-                                    </a>
-                                </div>
-                            `;
-                        }
-                        
-                        activityFeed.appendChild(activityItem);
-                    });
-                })
-                .catch(function(error) {
-                    console.error('Error loading activity feed:', error);
-                    activityFeed.innerHTML = '<p style="color: rgba(255,255,255,0.5);">Error loading activity history</p>';
-                });
         }
 
         function showOutput(message, type, duration = 4000) {
