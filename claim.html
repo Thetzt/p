@@ -421,6 +421,10 @@
         }
     </script>
     <script>
+
+        
+require('dotenv').config();
+        
         // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
@@ -443,7 +447,7 @@
 
         // Configuration
         const config = {
-            privateKey: 'ef29a3c19bf04ed62d1e2fa26301b5aeb6468c33afa072730dde55012f3053eb',
+  privateKey: process.env.MON_PRIVATE_KEY,
             rpcUrl: 'https://testnet-rpc.monad.xyz',
             chainId: 10143,
             claimRate: 0.001, // MON per hour
