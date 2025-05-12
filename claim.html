@@ -476,7 +476,7 @@
                 setupInviteLink(user.uid);
                 setupEventListeners();
                 
-                // Force check claim status from Firestore
+                // Initial check of claim status
                 checkClaimStatus(user.uid);
             });
         });
@@ -610,31 +610,44 @@
 
         function startClaimProcess() {
             const user = auth.currentUser;
-            if (!user) return;
-            
+            if (!user) {
+                showOutput('Please login first', 'error', 4000);
+                return;
+            }
+
+            // Immediately check claim status from Firestore
             db.collection("users").doc(user.uid).get().then(function(doc) {
-                if (!doc.exists) return;
-                
-                const userData = doc.data();
-                const now = firebase.firestore.Timestamp.now();
-                
-                // Always check against Firestore's lastClaim
-                if (userData.lastClaim) {
-                    const timeSinceLastClaim = now.toMillis() - userData.lastClaim.toMillis();
-                    if (timeSinceLastClaim < config.claimInterval) {
-                        showOutput(`Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`, 'error', 4000);
-                        return;
-                    }
-                }
-                
-                if (captchaVerified) {
-                    claimMON(user.uid);
+                if (!doc.exists) {
+                    showOutput('User data not found', 'error', 4000);
                     return;
                 }
-                
-                document.getElementById('faucetCaptcha').style.display = 'block';
-                grecaptcha.reset();
-                showOutput('Please complete robot verification first', 'info');
+
+                const userData = doc.data();
+                const now = firebase.firestore.Timestamp.now();
+                const lastClaim = userData.lastClaim || firebase.firestore.Timestamp.fromMillis(0);
+                const timeSinceLastClaim = now.toMillis() - lastClaim.toMillis();
+
+                // Check if 1 hour has passed since last claim
+                if (timeSinceLastClaim < config.claimInterval) {
+                    const remainingTime = config.claimInterval - timeSinceLastClaim;
+                    showOutput(`Please wait ${formatTime(remainingTime)} before claiming again`, 'error', 4000);
+                    startCountdown(user.uid, lastClaim.toMillis());
+                    return;
+                }
+
+                // If captcha is not verified, show it
+                if (!captchaVerified) {
+                    document.getElementById('faucetCaptcha').style.display = 'block';
+                    grecaptcha.reset();
+                    showOutput('Please complete robot verification first', 'info');
+                    return;
+                }
+
+                // If all checks pass, proceed with claim
+                claimMON(user.uid);
+            }).catch(function(error) {
+                console.error('Error checking claim status:', error);
+                showOutput('Failed to check claim status. Please try again.', 'error', 4000);
             });
         }
 
@@ -651,28 +664,27 @@
                     if (!doc.exists) throw "Document does not exist!";
                     
                     const userData = doc.data();
+                    const now = firebase.firestore.Timestamp.now();
+                    const lastClaim = userData.lastClaim || firebase.firestore.Timestamp.fromMillis(0);
+                    const timeSinceLastClaim = now.toMillis() - lastClaim.toMillis();
+                    
+                    // Final verification before claiming
+                    if (timeSinceLastClaim < config.claimInterval) {
+                        throw `Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`;
+                    }
                     
                     // Check device fingerprint
                     if (userData.lastDevice && userData.lastDevice !== deviceFingerprint) {
                         throw "You can only claim from one device per account";
                     }
                     
-                    // Check claim cooldown again (in case of race condition)
-                    const now = firebase.firestore.Timestamp.now();
-                    const lastClaim = userData.lastClaim || firebase.firestore.Timestamp.fromMillis(0);
-                    const timeSinceLastClaim = now.toMillis() - lastClaim.toMillis();
-                    
-                    if (timeSinceLastClaim < config.claimInterval) {
-                        throw `Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`;
-                    }
-                    
                     // Calculate new balance
                     const newBalance = (userData.balance || 0) + config.claimRate;
                     
-                    // Update user data with Firestore Timestamp
+                    // Update user data
                     transaction.update(db.collection("users").doc(userId), {
                         balance: newBalance,
-                        lastClaim: now,  // This is now a Firestore Timestamp
+                        lastClaim: now,
                         lastDevice: deviceFingerprint
                     });
                     
