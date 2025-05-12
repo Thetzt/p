@@ -734,14 +734,14 @@
 
         // Call Netlify function
         const response = await fetch('/.netlify/functions/withdraw', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                address: address,
-                amount: userData.balance,
-                userId: user.uid
-            })
-        });
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    address: address,
+    amount: userData.balance,
+    userId: user.uid
+  })
+});
 
         const result = await response.json();
         
