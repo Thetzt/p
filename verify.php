@@ -81,6 +81,16 @@
             });
         });
 
+
+
+
+
+
+
+
+
+
+
         function checkClaimStatus(userId) {
             db.collection("users").doc(userId).get().then(function(doc) {
                 if (doc.exists) {
