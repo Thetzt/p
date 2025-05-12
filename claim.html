@@ -485,13 +485,17 @@
             db.collection("users").doc(userId).get().then(function(doc) {
                 if (doc.exists) {
                     const userData = doc.data();
-                    if (userData.lastClaim) {
+                    if (userData.nextClaim) {
                         const now = firebase.firestore.Timestamp.now();
-                        const timeSinceLastClaim = now.toMillis() - userData.lastClaim.toMillis();
+                        const nextClaimTime = userData.nextClaim.toMillis();
                         
-                        if (timeSinceLastClaim < config.claimInterval) {
-                            startCountdown(userId, userData.lastClaim.toMillis());
+                        if (now.toMillis() < nextClaimTime) {
+                            startCountdown(userId, nextClaimTime);
                         } else {
+                            // Auto-reset if cooldown period has passed
+                            db.collection("users").doc(userId).update({
+                                nextClaim: firebase.firestore.Timestamp.fromMillis(0)
+                            });
                             document.getElementById('faucetTimer').textContent = '';
                         }
                     }
@@ -576,16 +580,20 @@
             document.getElementById('userBalance').textContent = (userData?.balance || 0).toFixed(4) + ' MON';
         }
 
-        function startCountdown(userId, lastClaimMillis) {
+        function startCountdown(userId, nextClaimMillis) {
             clearInterval(countdownInterval);
             
             const updateCountdown = () => {
                 const now = Date.now();
-                const remaining = lastClaimMillis + config.claimInterval - now;
+                const remaining = nextClaimMillis - now;
                 
                 if (remaining <= 0) {
                     clearInterval(countdownInterval);
                     document.getElementById('faucetTimer').textContent = '';
+                    // Auto-reset nextClaim when cooldown expires
+                    db.collection("users").doc(userId).update({
+                        nextClaim: firebase.firestore.Timestamp.fromMillis(0)
+                    });
                     return;
                 }
                 
@@ -615,7 +623,7 @@
                 return;
             }
 
-            // Immediately check claim status from Firestore
+            // Check claim status directly from Firestore
             db.collection("users").doc(user.uid).get().then(function(doc) {
                 if (!doc.exists) {
                     showOutput('User data not found', 'error', 4000);
@@ -624,14 +632,13 @@
 
                 const userData = doc.data();
                 const now = firebase.firestore.Timestamp.now();
-                const lastClaim = userData.lastClaim || firebase.firestore.Timestamp.fromMillis(0);
-                const timeSinceLastClaim = now.toMillis() - lastClaim.toMillis();
+                const nextClaim = userData.nextClaim || firebase.firestore.Timestamp.fromMillis(0);
 
-                // Check if 1 hour has passed since last claim
-                if (timeSinceLastClaim < config.claimInterval) {
-                    const remainingTime = config.claimInterval - timeSinceLastClaim;
-                    showOutput(`Please wait ${formatTime(remainingTime)} before claiming again`, 'error', 4000);
-                    startCountdown(user.uid, lastClaim.toMillis());
+                // Check if current time is before nextClaim time
+                if (now.toMillis() < nextClaim.toMillis()) {
+                    const remainingTime = nextClaim.toMillis() - now.toMillis();
+                    showOutput(`Next claim available at ${new Date(nextClaim.toMillis()).toLocaleTimeString()} (${formatTime(remainingTime)} remaining)`, 'error', 5000);
+                    startCountdown(user.uid, nextClaim.toMillis());
                     return;
                 }
 
@@ -645,9 +652,6 @@
 
                 // If all checks pass, proceed with claim
                 claimMON(user.uid);
-            }).catch(function(error) {
-                console.error('Error checking claim status:', error);
-                showOutput('Failed to check claim status. Please try again.', 'error', 4000);
             });
         }
 
@@ -657,46 +661,40 @@
             claimBtn.classList.add('button-loading');
             claimBtn.textContent = 'Claiming...';
             
-            const deviceFingerprint = generateDeviceFingerprint();
-            
             db.runTransaction(function(transaction) {
                 return transaction.get(db.collection("users").doc(userId)).then(function(doc) {
                     if (!doc.exists) throw "Document does not exist!";
                     
                     const userData = doc.data();
                     const now = firebase.firestore.Timestamp.now();
-                    const lastClaim = userData.lastClaim || firebase.firestore.Timestamp.fromMillis(0);
-                    const timeSinceLastClaim = now.toMillis() - lastClaim.toMillis();
+                    const nextClaim = userData.nextClaim || firebase.firestore.Timestamp.fromMillis(0);
                     
                     // Final verification before claiming
-                    if (timeSinceLastClaim < config.claimInterval) {
-                        throw `Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`;
+                    if (now.toMillis() < nextClaim.toMillis()) {
+                        throw `Please wait until ${new Date(nextClaim.toMillis()).toLocaleTimeString()} to claim again`;
                     }
                     
-                    // Check device fingerprint
-                    if (userData.lastDevice && userData.lastDevice !== deviceFingerprint) {
-                        throw "You can only claim from one device per account";
-                    }
-                    
-                    // Calculate new balance
+                    // Calculate new balance and set next claim time
                     const newBalance = (userData.balance || 0) + config.claimRate;
+                    const newNextClaim = firebase.firestore.Timestamp.fromMillis(
+                        now.toMillis() + config.claimInterval
+                    );
                     
                     // Update user data
                     transaction.update(db.collection("users").doc(userId), {
                         balance: newBalance,
-                        lastClaim: now,
-                        lastDevice: deviceFingerprint
+                        nextClaim: newNextClaim
                     });
                     
-                    return now;
+                    return newNextClaim;
                 });
-            }).then(function(lastClaimTime) {
-                showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
+            }).then(function(nextClaimTime) {
+                showOutput(`Success! Claimed ${config.claimRate} MON. Next claim at ${new Date(nextClaimTime.toMillis()).toLocaleTimeString()}`, 'success', 5000);
                 resetClaimButton(claimBtn);
                 captchaVerified = false;
                 
-                // Start countdown with the new lastClaim time
-                startCountdown(userId, lastClaimTime.toMillis());
+                // Start countdown with the new nextClaim time
+                startCountdown(userId, nextClaimTime.toMillis());
             }).catch(function(error) {
                 console.error('Claim failed: ', error);
                 showOutput(typeof error === 'string' ? error : 'Failed to claim MON. Please try again.', 'error', 4000);
@@ -796,16 +794,6 @@
             button.disabled = false;
             button.classList.remove('button-loading');
             button.textContent = 'Claim MON';
-        }
-
-        function generateDeviceFingerprint() {
-            const userAgent = navigator.userAgent;
-            const screenWidth = screen.width;
-            const screenHeight = screen.height;
-            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const language = navigator.language;
-            
-            return `${userAgent}-${screenWidth}-${screenHeight}-${timezone}-${language}`;
         }
 
         function onCaptchaSuccess(token) {
