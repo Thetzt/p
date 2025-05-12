@@ -421,7 +421,7 @@
         }
     </script>
     <script>
-        // Initialize Firebase
+        // Initialize Firebase with persistence
 const firebaseConfig = {
   apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
   authDomain: "claimpx.firebaseapp.com",
@@ -432,15 +432,30 @@ const firebaseConfig = {
   measurementId: "G-NYK5SSMCF3"
 };
 
-const firebaseApp = firebase.initializeApp(firebaseConfig);
+const app = firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Enable offline persistence
+// Enable persistence with error handling
 db.enablePersistence()
   .catch((err) => {
-    console.error("Firestore persistence error:", err);
+    if (err.code == 'failed-precondition') {
+      console.warn("Persistence failed - multiple tabs open");
+    } else if (err.code == 'unimplemented') {
+      console.warn("Persistence not available");
+    }
   });
+
+// Track auth state properly
+let currentUser = null;
+auth.onAuthStateChanged((user) => {
+  currentUser = user;
+  if (!user) {
+    window.location.href = 'index.html';
+  } else {
+    initializeUserData(user.uid);
+  }
+});
         
         // Global state
         let countdownInterval;
