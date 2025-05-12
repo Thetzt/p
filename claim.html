@@ -514,6 +514,36 @@
                     }, function(error) {
                         console.error("User data listener error:", error);
                     });
+
+
+
+                // Update referral stats
+                            if (userData.referrals) {
+                                document.getElementById('referralCount').textContent = userData.referrals.count || 0;
+                                document.getElementById('referralEarnings').textContent = 
+                                    ((userData.referrals.count || 0) * 0.01).toFixed(2);
+                            }
+                        }
+                    });
+                
+                // Setup invite link with referral ID
+                setupInviteLink(user.uid);
+                setupProfile(user.uid);
+                setupEventListeners();
+                startCountdown(user.uid);
+            });
+        });
+
+        function setupInviteLink(userId) {
+            const inviteLink = document.getElementById('inviteLink');
+            inviteLink.value = `https://claimpx.netlify.app?ref=${userId}`;
+            
+            document.getElementById('copyInviteBtn').addEventListener('click', function() {
+                inviteLink.select();
+                document.execCommand('copy');
+                showOutput('Invite link copied!', 'success', 2000);
+            });
+        }
                 
                 // Initial setup
                 setupProfile(user.uid);
@@ -680,18 +710,25 @@
                 const currentBalance = userData.balance || 0;
                 const newBalance = currentBalance + config.claimRate;
                 
-                // Simplified update - no transaction history recording
-                db.collection("users").doc(userId).update({
-                    balance: newBalance,
-                    lastClaim: Date.now(),
-                    lastDevice: deviceFingerprint
+                // Update with transaction for reliability
+                db.runTransaction(function(transaction) {
+                    return transaction.get(db.collection("users").doc(userId)).then(function(doc) {
+                        if (!doc.exists) throw "Document does not exist!";
+                        
+                        const updatedBalance = (doc.data().balance || 0) + config.claimRate;
+                        transaction.update(db.collection("users").doc(userId), {
+                            balance: updatedBalance,
+                            lastClaim: Date.now(),
+                            lastDevice: deviceFingerprint
+                        });
+                    });
                 }).then(function() {
                     showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
                     resetClaimButton(claimBtn);
                     captchaVerified = false;
                 }).catch(function(error) {
-                    console.error('Balance update error:', error);
-                    showOutput('Failed to update balance', 'error', 4000);
+                    console.error('Transaction failed: ', error);
+                    showOutput('Failed to claim MON. Please try again.', 'error', 4000);
                     resetClaimButton(claimBtn);
                 });
             }).catch(function(error) {
@@ -700,6 +737,8 @@
                 resetClaimButton(claimBtn);
             });
         }
+
+        
 
         async function processWithdrawal() {
             const address = document.getElementById('withdrawAddress').value.trim();
