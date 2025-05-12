@@ -465,9 +465,6 @@
                     return;
                 }
                 
-                // Clear any existing interval
-                clearInterval(countdownInterval);
-                
                 // Setup real-time listener for user data
                 setupRealtimeListener(user.uid);
                 
@@ -475,31 +472,7 @@
                 setupProfile(user.uid);
                 setupInviteLink(user.uid);
                 setupEventListeners();
-                
-                // Initialize countdown from Firestore data
-                db.collection("users").doc(user.uid).get().then(function(doc) {
-                    if (doc.exists && doc.data().lastClaim) {
-                        const now = Date.now();
-                        const timeSinceLastClaim = now - doc.data().lastClaim;
-                        
-                        if (timeSinceLastClaim < config.claimInterval) {
-                            const timeLeft = config.claimInterval - timeSinceLastClaim;
-                            updateTimerDisplay(timeLeft);
-                            
-                            countdownInterval = setInterval(function() {
-                                const remaining = doc.data().lastClaim + config.claimInterval - Date.now();
-                                
-                                if (remaining <= 0) {
-                                    clearInterval(countdownInterval);
-                                    document.getElementById('faucetTimer').textContent = '';
-                                    document.getElementById('claimButton').disabled = false;
-                                } else {
-                                    updateTimerDisplay(remaining);
-                                }
-                            }, 1000);
-                        }
-                    }
-                });
+                startCountdown(user.uid);
             });
         });
 
@@ -561,7 +534,6 @@
 
         function setupInviteLink(userId) {
             const inviteLink = document.getElementById('inviteLink');
-            // Updated referral link format
             inviteLink.value = `https://claimpx.netlify.app?ref=${userId}`;
             
             document.getElementById('copyInviteBtn').addEventListener('click', function() {
@@ -594,159 +566,272 @@
             }
         }
 
-        function updateTimerDisplay(ms) {
-            const seconds = Math.floor(ms / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
+        function startCountdown(userId) {
+            clearInterval(countdownInterval);
             
-            const displayHours = hours % 24;
-            const displayMinutes = minutes % 60;
-            const displaySeconds = seconds % 60;
-            
-            document.getElementById('faucetTimer').textContent = 
-                `${displayHours.toString().padStart(2, '0')}:${displayMinutes.toString().padStart(2, '0')}:${displaySeconds.toString().padStart(2, '0')}`;
-            
-            // Disable claim button if timer is running
-            document.getElementById('claimButton').disabled = ms > 0;
+            db.collection("users").doc(userId).get().then(function(doc) {
+                if (!doc.exists) return;
+                
+                const userData = doc.data();
+                if (!userData.lastClaim) return;
+                
+                const now = Date.now();
+                const timeSinceLastClaim = now - userData.lastClaim;
+                
+                if (timeSinceLastClaim >= config.claimInterval) {
+                    document.getElementById('faucetTimer').textContent = '';
+                    return;
+                }
+                
+                const timeLeft = config.claimInterval - timeSinceLastClaim;
+                updateTimerDisplay(timeLeft);
+                
+                countdownInterval = setInterval(function() {
+                    const remaining = userData.lastClaim + config.claimInterval - Date.now();
+                    
+                    if (remaining <= 0) {
+                        clearInterval(countdownInterval);
+                        document.getElementById('faucetTimer').textContent = '';
+                        return;
+                    }
+                    
+                    updateTimerDisplay(remaining);
+                }, 1000);
+            });
         }
 
-        function showOutput(message, type, duration) {
-            const output = document.getElementById('outputData');
-            output.textContent = message;
-            output.className = 'output-data';
-            output.classList.add(`output-${type}`);
-            output.style.display = 'block';
+        function updateTimerDisplay(ms) {
+            const hours = Math.floor(ms / (1000 * 60 * 60));
+            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((ms % (1000 * 60)) / 1000);
             
-            if (duration) {
-                setTimeout(function() {
-                    output.style.display = 'none';
-                }, duration);
+            document.getElementById('faucetTimer').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function startClaimProcess() {
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            db.collection("users").doc(user.uid).get().then(function(doc) {
+                if (!doc.exists) return;
+                
+                const userData = doc.data();
+                const now = Date.now();
+                const timeSinceLastClaim = now - (userData.lastClaim || 0);
+                
+                if (timeSinceLastClaim < config.claimInterval) {
+                    showOutput(`Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`, 'error', 4000);
+                    return;
+                }
+                
+                if (captchaVerified) {
+                    claimMON(user.uid);
+                    return;
+                }
+                
+                document.getElementById('faucetCaptcha').style.display = 'block';
+                grecaptcha.reset();
+                showOutput('Please complete robot verification first', 'info');
+            });
+        }
+
+        function claimMON(userId) {
+            const claimBtn = document.getElementById('claimButton');
+            claimBtn.disabled = true;
+            claimBtn.classList.add('button-loading');
+            claimBtn.textContent = 'Claiming...';
+            
+            const deviceFingerprint = generateDeviceFingerprint();
+            
+            db.runTransaction(function(transaction) {
+                return transaction.get(db.collection("users").doc(userId)).then(function(doc) {
+                    if (!doc.exists) throw "Document does not exist!";
+                    
+                    const userData = doc.data();
+                    
+                    // Check device fingerprint
+                    if (userData.lastDevice && userData.lastDevice !== deviceFingerprint) {
+                        throw "You can only claim from one device per account";
+                    }
+                    
+                    // Check claim cooldown
+                    const now = Date.now();
+                    const timeSinceLastClaim = now - (userData.lastClaim || 0);
+                    if (timeSinceLastClaim < config.claimInterval) {
+                        throw `Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`;
+                    }
+                    
+                    // Calculate new balance
+                    const newBalance = (userData.balance || 0) + config.claimRate;
+                    
+                    // Update user data
+                    transaction.update(db.collection("users").doc(userId), {
+                        balance: newBalance,
+                        lastClaim: now,
+                        lastDevice: deviceFingerprint
+                    });
+                    
+                    return newBalance;
+                });
+            }).then(function(newBalance) {
+                showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
+                resetClaimButton(claimBtn);
+                captchaVerified = false;
+            }).catch(function(error) {
+                console.error('Claim failed: ', error);
+                showOutput(typeof error === 'string' ? error : 'Failed to claim MON. Please try again.', 'error', 4000);
+                resetClaimButton(claimBtn);
+            });
+        }
+
+        async function processWithdrawal() {
+            const address = document.getElementById('withdrawAddress').value.trim();
+            const user = auth.currentUser;
+            const withdrawBtn = document.getElementById('withdrawButton');
+            
+            if (!user) {
+                showOutput('Please login with Telegram first', 'error', 4000);
+                return;
+            }
+            
+            if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+                showOutput('Invalid MON address format', 'error', 4000);
+                return;
+            }
+            
+            withdrawBtn.disabled = true;
+            withdrawBtn.classList.add('button-loading');
+            withdrawBtn.textContent = 'Sending MON...';
+            showOutput('Processing withdrawal...', 'info');
+
+            try {
+                // Get user data in transaction to ensure consistency
+                const result = await db.runTransaction(async (transaction) => {
+                    const userDoc = await transaction.get(db.collection("users").doc(user.uid));
+                    if (!userDoc.exists) throw new Error('User not found');
+                    
+                    const userData = userDoc.data();
+                    if (userData.balance < config.minWithdraw) {
+                        throw new Error(`Minimum withdrawal is ${config.minWithdraw} MON`);
+                    }
+                    
+                    // Verify faucet balance
+                    const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
+                        chainId: config.chainId,
+                        name: 'monad-testnet'
+                    });
+                    
+                    const wallet = new ethers.Wallet(config.privateKey, provider);
+                    const faucetBalance = await provider.getBalance(wallet.address);
+                    if (ethers.utils.formatEther(faucetBalance) < userData.balance) {
+                        throw new Error('Faucet has insufficient funds');
+                    }
+                    
+                    // Send transaction
+                    const tx = await wallet.sendTransaction({
+                        to: address,
+                        value: ethers.utils.parseEther(userData.balance.toString())
+                    });
+                    
+                    // Update user balance
+                    transaction.update(db.collection("users").doc(user.uid), {
+                        balance: 0
+                    });
+                    
+                    return { tx, amount: userData.balance };
+                });
+                
+                // Wait for transaction confirmation
+                const receipt = await result.tx.wait();
+                if (receipt.status === 1) {
+                    showOutput(`Success! ${result.amount.toFixed(4)} MON sent to ${address}`, 'success', 4000);
+                } else {
+                    throw new Error('Transaction failed');
+                }
+                
+            } catch (error) {
+                console.error('Withdrawal error:', error);
+                let errorMsg = 'Withdrawal completed but there was an UI update issue';
+                let isError = true;
+                
+                if (error.message.includes('insufficient funds')) {
+                    errorMsg = 'Faucet has insufficient funds';
+                } else if (error.message.includes('underpriced')) {
+                    errorMsg = 'Network congestion. Please try again';
+                } else if (error.message.includes('Minimum withdrawal')) {
+                    errorMsg = error.message;
+                } else if (error.message.includes('completed')) {
+                    isError = false;
+                }
+                
+                showOutput(errorMsg, isError ? 'error' : 'success', 4000);
+            } finally {
+                withdrawBtn.disabled = false;
+                withdrawBtn.classList.remove('button-loading');
+                withdrawBtn.textContent = 'Withdraw';
             }
         }
 
-        function onCaptchaSuccess() {
-            captchaVerified = true;
+        function resetClaimButton(button) {
+            button.disabled = false;
+            button.classList.remove('button-loading');
+            button.textContent = 'Claim MON';
+        }
+
+        function generateDeviceFingerprint() {
+            const userAgent = navigator.userAgent;
+            const screenWidth = screen.width;
+            const screenHeight = screen.height;
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            
+            return `${userAgent}-${screenWidth}-${screenHeight}-${timezone}`;
+        }
+
+        function onCaptchaSuccess(token) {
             document.getElementById('faucetCaptcha').style.display = 'none';
+            captchaVerified = true;
+            showOutput('Verification successful! Click Claim MON again to receive your MON', 'success', 4000);
+            
+            setTimeout(() => {
+                if (captchaVerified) {
+                    captchaVerified = false;
+                    showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
+                }
+            }, config.captchaDuration);
         }
 
         function onCaptchaExpired() {
             captchaVerified = false;
-            document.getElementById('faucetCaptcha').style.display = 'block';
+            showOutput('Verification expired. Please complete reCAPTCHA again.', 'error', 4000);
         }
 
-        function startClaimProcess() {
-            const claimButton = document.getElementById('claimButton');
-            if (claimButton.disabled) return;
+        function showOutput(message, type, duration = 4000) {
+            const outputData = document.getElementById('outputData');
+            outputData.textContent = message;
+            outputData.className = 'output-data';
             
-            if (!captchaVerified) {
-                document.getElementById('faucetCaptcha').style.display = 'block';
-                showOutput('Please complete the CAPTCHA first', 'error');
-                return;
+            if (type === 'error') {
+                outputData.classList.add('output-error');
+            } else if (type === 'success') {
+                outputData.classList.add('output-success');
             }
             
-            claimButton.disabled = true;
-            claimButton.classList.add('button-loading');
+            outputData.style.display = 'block';
             
-            auth.currentUser.getIdToken(true).then(function(idToken) {
-                return fetch('https://us-central1-claimpx.cloudfunctions.net/claimMon', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${idToken}`
-                    },
-                    body: JSON.stringify({
-                        recaptchaToken: grecaptcha.getResponse()
-                    })
-                });
-            }).then(function(response) {
-                return response.json();
-            }).then(function(data) {
-                claimButton.classList.remove('button-loading');
-                
-                if (data.success) {
-                    showOutput(`Successfully claimed ${data.amount} MON!`, 'success');
-                    document.getElementById('userBalance').textContent = data.newBalance.toFixed(4) + ' MON';
-                    
-                    // Start countdown after successful claim
-                    const now = Date.now();
-                    updateTimerDisplay(config.claimInterval);
-                    countdownInterval = setInterval(function() {
-                        const elapsed = Date.now() - now;
-                        const remaining = config.claimInterval - elapsed;
-                        
-                        if (remaining <= 0) {
-                            clearInterval(countdownInterval);
-                            document.getElementById('faucetTimer').textContent = '';
-                            claimButton.disabled = false;
-                        } else {
-                            updateTimerDisplay(remaining);
-                        }
-                    }, 1000);
-                    
-                    // Hide captcha
-                    document.getElementById('faucetCaptcha').style.display = 'none';
-                    grecaptcha.reset();
-                    captchaVerified = false;
-                } else {
-                    showOutput(data.error || 'Claim failed', 'error');
-                    claimButton.disabled = false;
-                }
-            }).catch(function(error) {
-                console.error('Error:', error);
-                claimButton.classList.remove('button-loading');
-                showOutput('An error occurred. Please try again.', 'error');
-                claimButton.disabled = false;
-            });
+            if (duration > 0) {
+                setTimeout(() => {
+                    outputData.style.display = 'none';
+                }, duration);
+            }
         }
 
-        function processWithdrawal() {
-            const withdrawButton = document.getElementById('withdrawButton');
-            const addressInput = document.getElementById('withdrawAddress');
-            const address = addressInput.value.trim();
+        function formatTime(ms) {
+            const hours = Math.floor(ms / (1000 * 60 * 60));
+            const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((ms % (1000 * 60)) / 1000);
             
-            if (!address) {
-                showOutput('Please enter a valid MON address', 'error');
-                return;
-            }
-            
-            if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-                showOutput('Invalid MON address format', 'error');
-                return;
-            }
-            
-            withdrawButton.disabled = true;
-            withdrawButton.classList.add('button-loading');
-            
-            auth.currentUser.getIdToken(true).then(function(idToken) {
-                return fetch('https://us-central1-claimpx.cloudfunctions.net/withdrawMon', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${idToken}`
-                    },
-                    body: JSON.stringify({
-                        address: address
-                    })
-                });
-            }).then(function(response) {
-                return response.json();
-            }).then(function(data) {
-                withdrawButton.classList.remove('button-loading');
-                withdrawButton.disabled = false;
-                
-                if (data.success) {
-                    showOutput(`Successfully withdrew ${data.amount} MON to ${address}`, 'success');
-                    document.getElementById('userBalance').textContent = data.newBalance.toFixed(4) + ' MON';
-                    addressInput.value = '';
-                } else {
-                    showOutput(data.error || 'Withdrawal failed', 'error');
-                }
-            }).catch(function(error) {
-                console.error('Error:', error);
-                withdrawButton.classList.remove('button-loading');
-                withdrawButton.disabled = false;
-                showOutput('An error occurred. Please try again.', 'error');
-            });
+            return `${hours}h ${minutes}m ${seconds}s`;
         }
     </script>
 </body>
