@@ -78,7 +78,6 @@
                 try {
                     document.getElementById('loginError').style.display = 'none';
                     
-                    // Verify with backend and get Firebase token
                     const response = await fetch("/.netlify/functions/verify", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -91,10 +90,7 @@
                         throw new Error(result.error || "Verification failed");
                     }
 
-                    // Sign in with Firebase
                     await auth.signInWithCustomToken(result.token);
-                    
-                    // Redirect to claim page
                     window.location.href = 'claim.html';
                 } catch (error) {
                     console.error("Auth error:", error);
@@ -105,5 +101,6 @@
             }
         }
     </script>
+    <script type='text/javascript' src='//pl26588542.profitableratecpm.com/16/0f/6b/160f6bfa3fd6a89824e441d2914b127c.js'></script>
 </body>
 </html>
