@@ -667,7 +667,14 @@ db.enablePersistence()
     const result = await db.runTransaction(async (transaction) => {
       const userDoc = await transaction.get(db.collection("users").doc(userId));
       if (!userDoc.exists) {
-        throw new Error("User document not found");
+        // Create user document if it doesn't exist
+        transaction.set(db.collection("users").doc(userId), {
+          balance: config.claimRate,
+          lastClaim: firebase.firestore.Timestamp.now(),
+          lastDevice: generateDeviceFingerprint(),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return { newBalance: config.claimRate };
       }
 
       const userData = userDoc.data();
@@ -677,31 +684,30 @@ db.enablePersistence()
       if (userData.lastClaim) {
         const timeSinceLastClaim = now.toMillis() - userData.lastClaim.toMillis();
         if (timeSinceLastClaim < config.claimInterval) {
-          throw new Error(`Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`);
+          throw new Error(`Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)}`);
         }
       }
 
       // Calculate new balance
       const newBalance = (userData.balance || 0) + config.claimRate;
 
-      // Prepare update
       transaction.update(db.collection("users").doc(userId), {
         balance: newBalance,
         lastClaim: now,
         lastDevice: generateDeviceFingerprint()
       });
 
-      return { newBalance, lastClaimTime: now.toMillis() };
+      return { newBalance };
     });
 
     showOutput(`Success! Claimed ${config.claimRate} MON`, 'success', 4000);
-    startCountdown(userId, result.lastClaimTime);
+    document.getElementById('userBalance').textContent = result.newBalance.toFixed(4) + ' MON';
   } catch (error) {
     console.error("Claim error:", error);
     if (error.code === 'permission-denied') {
-      showOutput("Failed to claim: Permission denied. Please refresh and try again.", 'error', 4000);
+      showOutput("Claim failed: Please refresh and try again", 'error', 4000);
     } else {
-      showOutput(error.message || "Failed to claim MON. Please try again.", 'error', 4000);
+      showOutput(error.message || "Failed to claim MON", 'error', 4000);
     }
   } finally {
     resetClaimButton(claimBtn);
@@ -712,6 +718,7 @@ db.enablePersistence()
         async function processWithdrawal() {
   const address = document.getElementById('withdrawAddress').value.trim();
   const user = auth.currentUser;
+  const withdrawBtn = document.getElementById('withdrawButton');
   
   if (!user) {
     showOutput('Please login first', 'error', 4000);
@@ -723,49 +730,50 @@ db.enablePersistence()
     return;
   }
 
-  const withdrawBtn = document.getElementById('withdrawButton');
   try {
     withdrawBtn.disabled = true;
     withdrawBtn.classList.add('button-loading');
     withdrawBtn.textContent = 'Processing...';
     
+    // First get current balance
     const userDoc = await db.collection("users").doc(user.uid).get();
-    if (!userDoc.exists) throw new Error("User not found");
+    if (!userDoc.exists) throw new Error("Account not found");
     
-    const userData = userDoc.data();
-    if (userData.balance < config.minWithdraw) {
-      throw new Error(`Minimum withdrawal is ${config.minWithdraw} MON`);
+    const currentBalance = userDoc.data().balance || 0;
+    if (currentBalance < config.minWithdraw) {
+      throw new Error(`Minimum withdrawal: ${config.minWithdraw} MON`);
     }
 
+    // Process withdrawal transaction
     const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl);
     const wallet = new ethers.Wallet(config.privateKey, provider);
-    
     const tx = await wallet.sendTransaction({
       to: address,
-      value: ethers.utils.parseEther(userData.balance.toString())
+      value: ethers.utils.parseEther(currentBalance.toString())
     });
 
-    // Update Firestore
+    // Update user balance
     await db.collection("users").doc(user.uid).update({
-      balance: firebase.firestore.FieldValue.increment(-userData.balance)
+      balance: firebase.firestore.FieldValue.increment(-currentBalance)
     });
 
-    showOutput(`Success! ${userData.balance.toFixed(4)} MON sent. TX: ${tx.hash}`, 'success', 6000);
+    showOutput(`Success! Sent ${currentBalance.toFixed(4)} MON (TX: ${tx.hash})`, 'success', 6000);
     document.getElementById('userBalance').textContent = '0.0000 MON';
   } catch (error) {
     console.error('Withdrawal error:', error);
+    let errorMsg = 'Withdrawal failed';
     if (error.code === 'permission-denied') {
-      showOutput('Withdrawal failed: Permission denied', 'error', 4000);
-    } else {
-      showOutput(error.message || 'Withdrawal failed', 'error', 4000);
+      errorMsg = 'Authorization failed. Please refresh and try again.';
+    } else if (error.message.includes('insufficient funds')) {
+      errorMsg = 'Faucet balance too low';
     }
+    showOutput(errorMsg, 'error', 4000);
   } finally {
     withdrawBtn.disabled = false;
     withdrawBtn.classList.remove('button-loading');
     withdrawBtn.textContent = 'Withdraw';
   }
 }
-
         function resetClaimButton(button) {
             button.disabled = false;
             button.classList.remove('button-loading');
