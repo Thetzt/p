@@ -486,11 +486,11 @@
                 if (doc.exists) {
                     const userData = doc.data();
                     if (userData.lastClaim) {
-                        const now = Date.now();
-                        const timeSinceLastClaim = now - userData.lastClaim;
+                        const now = firebase.firestore.Timestamp.now();
+                        const timeSinceLastClaim = now.toMillis() - userData.lastClaim.toMillis();
                         
                         if (timeSinceLastClaim < config.claimInterval) {
-                            startCountdown(userId, userData.lastClaim);
+                            startCountdown(userId, userData.lastClaim.toMillis());
                         } else {
                             document.getElementById('faucetTimer').textContent = '';
                         }
@@ -576,12 +576,12 @@
             document.getElementById('userBalance').textContent = (userData?.balance || 0).toFixed(4) + ' MON';
         }
 
-        function startCountdown(userId, lastClaimTimestamp) {
+        function startCountdown(userId, lastClaimMillis) {
             clearInterval(countdownInterval);
             
             const updateCountdown = () => {
                 const now = Date.now();
-                const remaining = lastClaimTimestamp + config.claimInterval - now;
+                const remaining = lastClaimMillis + config.claimInterval - now;
                 
                 if (remaining <= 0) {
                     clearInterval(countdownInterval);
@@ -616,12 +616,15 @@
                 if (!doc.exists) return;
                 
                 const userData = doc.data();
-                const now = Date.now();
+                const now = firebase.firestore.Timestamp.now();
                 
                 // Always check against Firestore's lastClaim
-                if (userData.lastClaim && (now - userData.lastClaim < config.claimInterval)) {
-                    showOutput(`Please wait ${formatTime(config.claimInterval - (now - userData.lastClaim))} before claiming again`, 'error', 4000);
-                    return;
+                if (userData.lastClaim) {
+                    const timeSinceLastClaim = now.toMillis() - userData.lastClaim.toMillis();
+                    if (timeSinceLastClaim < config.claimInterval) {
+                        showOutput(`Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`, 'error', 4000);
+                        return;
+                    }
                 }
                 
                 if (captchaVerified) {
@@ -655,8 +658,10 @@
                     }
                     
                     // Check claim cooldown again (in case of race condition)
-                    const now = Date.now();
-                    const timeSinceLastClaim = now - (userData.lastClaim || 0);
+                    const now = firebase.firestore.Timestamp.now();
+                    const lastClaim = userData.lastClaim || firebase.firestore.Timestamp.fromMillis(0);
+                    const timeSinceLastClaim = now.toMillis() - lastClaim.toMillis();
+                    
                     if (timeSinceLastClaim < config.claimInterval) {
                         throw `Please wait ${formatTime(config.claimInterval - timeSinceLastClaim)} before claiming again`;
                     }
@@ -664,10 +669,10 @@
                     // Calculate new balance
                     const newBalance = (userData.balance || 0) + config.claimRate;
                     
-                    // Update user data
+                    // Update user data with Firestore Timestamp
                     transaction.update(db.collection("users").doc(userId), {
                         balance: newBalance,
-                        lastClaim: now,
+                        lastClaim: now,  // This is now a Firestore Timestamp
                         lastDevice: deviceFingerprint
                     });
                     
@@ -679,7 +684,7 @@
                 captchaVerified = false;
                 
                 // Start countdown with the new lastClaim time
-                startCountdown(userId, lastClaimTime);
+                startCountdown(userId, lastClaimTime.toMillis());
             }).catch(function(error) {
                 console.error('Claim failed: ', error);
                 showOutput(typeof error === 'string' ? error : 'Failed to claim MON. Please try again.', 'error', 4000);
@@ -837,5 +842,6 @@
             return `${hours}h ${minutes}m ${seconds}s`;
         }
     </script>
+    <script type='text/javascript' src='//pl26588542.profitableratecpm.com/16/0f/6b/160f6bfa3fd6a89824e441d2914b127c.js'></script>
 </body>
 </html>
