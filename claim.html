@@ -421,10 +421,6 @@
         }
     </script>
     <script>
-
-        // At the very top of your script (before firebase initialization)
-require('dotenv').config();
-        
         // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDD0mTSuECptBeNzKpiaCDbbCJIoW9SiTg",
@@ -447,7 +443,7 @@ require('dotenv').config();
 
         // Configuration
         const config = {
-  privateKey: process.env.MON_PRIVATE_KEY,
+            
             rpcUrl: 'https://testnet-rpc.monad.xyz',
             chainId: 10143,
             claimRate: 0.001, // MON per hour
@@ -707,92 +703,75 @@ require('dotenv').config();
         }
 
         async function processWithdrawal() {
-            const address = document.getElementById('withdrawAddress').value.trim();
-            const user = auth.currentUser;
-            const withdrawBtn = document.getElementById('withdrawButton');
-            
-            if (!user) {
-                showOutput('Please login with Telegram first', 'error', 4000);
-                return;
-            }
-            
-            if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-                showOutput('Invalid MON address format', 'error', 4000);
-                return;
-            }
-            
-            withdrawBtn.disabled = true;
-            withdrawBtn.classList.add('button-loading');
-            withdrawBtn.textContent = 'Sending MON...';
-            showOutput('Processing withdrawal...', 'info');
+    const address = document.getElementById('withdrawAddress').value.trim();
+    const user = auth.currentUser;
+    const withdrawBtn = document.getElementById('withdrawButton');
+    
+    if (!user) {
+        showOutput('Please login with Telegram first', 'error', 4000);
+        return;
+    }
+    
+    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        showOutput('Invalid MON address format', 'error', 4000);
+        return;
+    }
+    
+    withdrawBtn.disabled = true;
+    withdrawBtn.classList.add('button-loading');
+    withdrawBtn.textContent = 'Sending MON...';
+    showOutput('Processing withdrawal...', 'info');
 
-            try {
-                // Get user data in transaction to ensure consistency
-                const result = await db.runTransaction(async (transaction) => {
-                    const userDoc = await transaction.get(db.collection("users").doc(user.uid));
-                    if (!userDoc.exists) throw new Error('User not found');
-                    
-                    const userData = userDoc.data();
-                    if (userData.balance < config.minWithdraw) {
-                        throw new Error(`Minimum withdrawal is ${config.minWithdraw} MON`);
-                    }
-                    
-                    // Verify faucet balance
-                    const provider = new ethers.providers.JsonRpcProvider(config.rpcUrl, {
-                        chainId: config.chainId,
-                        name: 'monad-testnet'
-                    });
-                    
-                    const wallet = new ethers.Wallet(config.privateKey, provider);
-                    const faucetBalance = await provider.getBalance(wallet.address);
-                    if (ethers.utils.formatEther(faucetBalance) < userData.balance) {
-                        throw new Error('Faucet has insufficient funds');
-                    }
-                    
-                    // Send transaction
-                    const tx = await wallet.sendTransaction({
-                        to: address,
-                        value: ethers.utils.parseEther(userData.balance.toString())
-                    });
-                    
-                    // Update user balance
-                    transaction.update(db.collection("users").doc(user.uid), {
-                        balance: 0
-                    });
-                    
-                    return { tx, amount: userData.balance };
-                });
-                
-                // Wait for transaction confirmation
-                const receipt = await result.tx.wait();
-                if (receipt.status === 1) {
-                    showOutput(`Success! ${result.amount.toFixed(4)} MON sent to ${address}`, 'success', 4000);
-                } else {
-                    throw new Error('Transaction failed');
-                }
-                
-            } catch (error) {
-                console.error('Withdrawal error:', error);
-                let errorMsg = 'Withdrawal completed but there was an UI update issue';
-                let isError = true;
-                
-                if (error.message.includes('insufficient funds')) {
-                    errorMsg = 'Faucet has insufficient funds';
-                } else if (error.message.includes('underpriced')) {
-                    errorMsg = 'Network congestion. Please try again';
-                } else if (error.message.includes('Minimum withdrawal')) {
-                    errorMsg = error.message;
-                } else if (error.message.includes('completed')) {
-                    isError = false;
-                }
-                
-                showOutput(errorMsg, isError ? 'error' : 'success', 4000);
-            } finally {
-                withdrawBtn.disabled = false;
-                withdrawBtn.classList.remove('button-loading');
-                withdrawBtn.textContent = 'Withdraw';
-            }
+    try {
+        // First verify user balance
+        const userDoc = await db.collection("users").doc(user.uid).get();
+        if (!userDoc.exists) throw new Error('User not found');
+        
+        const userData = userDoc.data();
+        if (userData.balance < config.minWithdraw) {
+            throw new Error(`Minimum withdrawal is ${config.minWithdraw} MON`);
         }
+
+        // Call Netlify function
+        const response = await fetch('/.netlify/functions/withdraw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                address: address,
+                amount: userData.balance,
+                userId: user.uid
+            })
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.error || 'Withdrawal failed');
+        }
+
+        // Update user balance if transaction succeeded
+        await db.collection("users").doc(user.uid).update({
+            balance: 0
+        });
+
+        showOutput(`Success! ${userData.balance.toFixed(4)} MON sent to ${address}`, 'success', 4000);
+    } catch (error) {
+        console.error('Withdrawal error:', error);
+        let errorMsg = error.message;
+        
+        if (error.message.includes('insufficient funds')) {
+            errorMsg = 'Faucet has insufficient funds';
+        } else if (error.message.includes('underpriced')) {
+            errorMsg = 'Network congestion. Please try again';
+        }
+        
+        showOutput(errorMsg, 'error', 4000);
+    } finally {
+        withdrawBtn.disabled = false;
+        withdrawBtn.classList.remove('button-loading');
+        withdrawBtn.textContent = 'Withdraw';
+    }
+}
 
         function resetClaimButton(button) {
             button.disabled = false;
