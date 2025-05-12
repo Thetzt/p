@@ -6,7 +6,7 @@
   },
   "dependencies": {
     "firebase-admin": "^11.11.0",
-    "crypto": "latest"
+    "crypto": "latest",
     "ethers": "^5.7.2"
   }
 }
